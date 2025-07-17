@@ -9,8 +9,8 @@ import { z } from 'zod'
 const mockUsers = [
   {
     id: '1',
-    email: 'demo@bookeasy.com',
-    password: '$2a$12$/vyWQN1YhTI1Z8A0HamzxenWYB7.rCpN6pBFifx4MZ6lm0wYYcCUy', // hashed "demo123"
+    email: 'demo@bookmyslot.com',
+    password: '$2a$12$Ld1LcgeR3bPwwU9cWLiSHe5LqJswoi0iuW3kpkKgtrLjWtbzv.lUm', // hashed "demo123"
     firstName: 'Demo',
     lastName: 'User',
     businessName: 'Demo Business',
@@ -44,8 +44,11 @@ export async function POST(request: NextRequest) {
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password)
+
+    console.log(isPasswordValid ? 'Password is valid' : 'Password is invalid')
     
     if (!isPasswordValid) {
+      console.error('Login failed: Invalid password for user:', email)
       return NextResponse.json(
         { message: 'Invalid email or password' },
         { status: 401 }

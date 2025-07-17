@@ -6,8 +6,8 @@ import jwt from 'jsonwebtoken'
 const mockUsers = [
   {
     id: '1',
-    email: 'demo@bookeasy.com',
-    password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    email: 'demo@bookmyslot.com',
+    password: '$2a$12$Ld1LcgeR3bPwwU9cWLiSHe5LqJswoi0iuW3kpkKgtrLjWtbzv.lUm',
     firstName: 'Demo',
     lastName: 'User',
     businessName: 'Demo Business',

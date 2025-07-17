@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface User {
   id: string
@@ -36,17 +36,24 @@ interface SignupData {
   password: string
 }
 
+// Define which routes require authentication
+const PROTECTED_ROUTES = ['/admin']
+
 export const useAuth = (): UseAuthReturn => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Check if current route requires authentication
+  const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route))
 
   const checkAuth = async () => {
     try {
       const response = await fetch('/api/auth/me', {
-        credentials: 'include', // Important for cookies
+        credentials: 'include',
       })
       
       if (response.ok) {
@@ -75,7 +82,7 @@ export const useAuth = (): UseAuthReturn => {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ email, password, rememberMe }), // Include rememberMe flag
+        body: JSON.stringify({ email, password, rememberMe }),
       })
 
       if (response.ok) {
@@ -138,8 +145,17 @@ export const useAuth = (): UseAuthReturn => {
   }
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    // Only check auth if:
+    // 1. It's a protected route, OR
+    // 2. forceCheck is true, OR
+    // 3. We're not on a purely public route (for cases where user might be logged in)
+    if (isProtectedRoute) {
+      checkAuth()
+    } else {
+      // For public routes, just set loading to false without checking auth
+      setLoading(false)
+    }
+  }, [pathname, isProtectedRoute])
 
   return {
     user,

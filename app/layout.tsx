@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext'
+import type { Viewport } from 'next'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,9 +15,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Slotly - Connect Beauty & Wellness Professionals with Clients',
-  description: 'Free appointment booking platform built for freelancing or individual beauty and wellness professionals. Take your schedule and clients with you, wherever you go.',
+  title: 'BookMySlot - Revolutionary Booking Platform for Beauty Professionals',
+  description: 'The most intuitive and powerful scheduling platform for beauty & wellness professionals. Lightning-fast setup, smart automation, and always free. Transform your booking experience today.',
+  keywords: 'beauty booking, appointment scheduling, salon software, beauty professionals, wellness booking, free scheduling app',
+  openGraph: {
+    title: 'BookMySlot - Revolutionary Booking Platform for Beauty Professionals',
+    description: 'Lightning-fast setup, smart automation, and always free. Transform your booking experience today.',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'BookMySlot - Revolutionary Booking Platform for Beauty Professionals',
+    description: 'Lightning-fast setup, smart automation, and always free. Transform your booking experience today.',
+  },
+  robots: 'index, follow',
 };
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
 
 export default function RootLayout({
   children,
@@ -25,11 +44,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content="#0891b2" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-        {children}
+          {children}
         </AuthProvider>
       </body>
     </html>

@@ -1,76 +1,86 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Clock, DollarSign, User, MapPin, Star } from 'lucide-react'
 
-// Mock data - in real app, fetch based on slug
-const businessData = {
-  name: "Elite Wellness Spa",
-  rating: 4.9,
-  reviews: 127,
-  address: "123 Main St, City, State",
-  description: "Premium wellness and beauty services in a relaxing environment",
-  services: [
-    {
-      id: 1,
-      name: "Deep Tissue Massage",
-      duration: 60,
-      price: 120,
-      homeServicePrice: 150,
-      description: "Therapeutic massage targeting deep muscle tension and knots",
-      category: "Massage Therapy",
-      availableLocations: ['in-store', 'home']
-    },
-    {
-      id: 2,
-      name: "Swedish Massage",
-      duration: 60,
-      price: 100,
-      homeServicePrice: 130,
-      description: "Relaxing full-body massage with gentle pressure",
-      category: "Massage Therapy",
-      availableLocations: ['in-store', 'home']
-    },
-    {
-      id: 3,
-      name: "Facial Treatment",
-      duration: 45,
-      price: 85,
-      homeServicePrice: 110,
-      description: "Customized facial treatment for all skin types",
-      category: "Skincare",
-      availableLocations: ['in-store', 'home']
-    },
-    {
-      id: 4,
-      name: "Hot Stone Massage",
-      duration: 90,
-      price: 150,
-      homeServicePrice: 180,
-      description: "Relaxing massage using heated volcanic stones",
-      category: "Massage Therapy",
-      availableLocations: ['in-store', 'home']
-    },
-    {
-      id: 5,
-      name: "Couples Massage",
-      duration: 60,
-      price: 220,
-      homeServicePrice: 250,
-      description: "Side-by-side massage experience for two",
-      category: "Massage Therapy",
-      availableLocations: ['in-store', 'home']
-    }
-  ]
+interface Service {
+  id: number
+  name: string
+  duration: number
+  price: number
+  homeServicePrice: number
+  description: string
+  category: string
+  availableLocations: ('in-store' | 'home')[]
+}
+
+interface BusinessData {
+  id: string
+  slug: string
+  name: string
+  rating: number
+  reviews: number
+  address: string
+  phone: string
+  email: string
+  description: string
+  services: Service[]
 }
 
 export default function ServiceSelectionPage() {
   const { slug } = useParams<{ slug: string }>()
+  const [businessData, setBusinessData] = useState<BusinessData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedService, setSelectedService] = useState<number | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [selectedServiceLocation, setSelectedServiceLocation] = useState<'in-store' | 'home'>('in-store')
+
+  useEffect(() => {
+    const fetchBusinessData = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/book/${slug}`)
+        
+        if (!response.ok) {
+          throw new Error('Business not found')
+        }
+        
+        const data = await response.json()
+        setBusinessData(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load business data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (slug) {
+      fetchBusinessData()
+    }
+  }, [slug])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (error || !businessData) {
+    return (
+      <div className="card text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Business Not Found</h2>
+        <p className="text-gray-600 mb-4">{error || 'The requested business could not be found.'}</p>
+        <Link href="/" className="btn-primary">
+          Go Home
+        </Link>
+      </div>
+    )
+  }
 
   const categories = ['All', ...Array.from(new Set(businessData.services.map(s => s.category)))]
   const filteredServices = selectedCategory === 'All' 
@@ -146,28 +156,34 @@ export default function ServiceSelectionPage() {
                   {selectedService === service.id && service.availableLocations.includes('home') && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                         <p className="text-sm font-medium mb-2">Service Location:</p>
-                        <div className="flex gap-2">
-                        <label className="flex items-center">
-                            <input
-                            type="radio"
-                            name="serviceLocation"
-                            value="in-store"
-                            checked={selectedServiceLocation === 'in-store'}
-                            onChange={(e) => setSelectedServiceLocation(e.target.value as 'in-store' | 'home')}
-                            className="mr-2"
-                            />
-                            <span className="text-sm">In-Store (${service.price})</span>
+                        <div className="space-y-2">
+                        <label className="flex items-center justify-between p-2 border rounded cursor-pointer hover:bg-white">
+                            <div className="flex items-center">
+                              <input
+                              type="radio"
+                              name="serviceLocation"
+                              value="in-store"
+                              checked={selectedServiceLocation === 'in-store'}
+                              onChange={(e) => setSelectedServiceLocation(e.target.value as 'in-store' | 'home')}
+                              className="mr-2"
+                              />
+                              <span className="text-sm">In-Store</span>
+                            </div>
+                            <span className="text-sm font-medium">${service.price}</span>
                         </label>
-                        <label className="flex items-center">
-                            <input
-                            type="radio"
-                            name="serviceLocation"
-                            value="home"
-                            checked={selectedServiceLocation === 'home'}
-                            onChange={(e) => setSelectedServiceLocation(e.target.value as 'home')}
-                            className="mr-2"
-                            />
-                            <span className="text-sm">Home Service (${service.homeServicePrice})</span>
+                        <label className="flex items-center justify-between p-2 border rounded cursor-pointer hover:bg-white">
+                            <div className="flex items-center">
+                              <input
+                              type="radio"
+                              name="serviceLocation"
+                              value="home"
+                              checked={selectedServiceLocation === 'home'}
+                              onChange={(e) => setSelectedServiceLocation(e.target.value as 'home')}
+                              className="mr-2"
+                              />
+                              <span className="text-sm">Home Service</span>
+                            </div>
+                            <span className="text-sm font-medium">${service.homeServicePrice}</span>
                         </label>
                         </div>
                     </div>
@@ -180,7 +196,11 @@ export default function ServiceSelectionPage() {
                     </div>
                     <div className="flex items-center">
                       <DollarSign className="h-4 w-4 mr-1" />
-                      <span>${service.price}</span>
+                      <span>
+                        ${selectedService === service.id ? 
+                          (selectedServiceLocation === 'home' ? service.homeServicePrice : service.price) : 
+                          service.price}
+                      </span>
                     </div>
                   </div>
                 </div>

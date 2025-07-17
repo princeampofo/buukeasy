@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -16,6 +16,21 @@ interface FormData {
   smsNotifications: boolean
   serviceAddress: string
   addressNotes: string
+}
+
+interface ServiceData {
+  id: number
+  name: string
+  duration: number
+  price: number
+  homeServicePrice: number
+  description: string
+  category: string
+}
+
+interface BusinessData {
+  name: string
+  services: ServiceData[]
 }
 
 export default function DetailsPage() {
@@ -39,6 +54,39 @@ export default function DetailsPage() {
   })
 
   const [errors, setErrors] = useState<Partial<FormData>>({})
+  const [serviceData, setServiceData] = useState<ServiceData | null>(null)
+  const [businessData, setBusinessData] = useState<BusinessData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Fetch business and service data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        
+        // Fetch business data
+        const businessResponse = await fetch(`/api/book/${slug}`)
+        if (businessResponse.ok) {
+          const business = await businessResponse.json()
+          setBusinessData(business)
+          
+          // Find the specific service
+          if (serviceId) {
+            const service = business.services.find((s: ServiceData) => s.id === parseInt(serviceId))
+            setServiceData(service || null)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (slug && serviceId) {
+      fetchData()
+    }
+  }, [slug, serviceId])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -76,6 +124,11 @@ export default function DetailsPage() {
       newErrors.phone = 'Please enter a valid phone number'
     }
 
+    // Validate service address for home services
+    if (serviceLocation === 'home' && !formData.serviceAddress.trim()) {
+      newErrors.serviceAddress = 'Service address is required for home services'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -90,8 +143,31 @@ export default function DetailsPage() {
     })
   }
 
-  const isFormValid = formData.firstName.trim() !== '' && formData.lastName.trim()  !== '' && /\S+@\S+\.\S+/.test(formData.email) && /^\+?[\d\s\-\(\)]+$/.test(formData.phone) 
-  && (serviceLocation !== 'home' || formData.serviceAddress.trim() !== '')
+  const isFormValid = formData.firstName.trim() !== '' && 
+    formData.lastName.trim() !== '' && 
+    /\S+@\S+\.\S+/.test(formData.email) && 
+    /^\+?[\d\s\-\(\)]+$/.test(formData.phone) && 
+    (serviceLocation !== 'home' || formData.serviceAddress.trim() !== '')
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (!serviceData || !businessData) {
+    return (
+      <div className="card text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Service Not Found</h2>
+        <p className="text-gray-600 mb-4">The requested service could not be found.</p>
+        <Link href={`/book/${slug}`} className="btn-primary">
+          Back to Services
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -100,14 +176,14 @@ export default function DetailsPage() {
         <h2 className="text-xl font-semibold mb-4 text-blue-900">Appointment Summary</h2>
         <div className="grid md:grid-cols-2 gap-4 text-blue-800">
           <div>
-            <p><strong>Service:</strong> Deep Tissue Massage</p>
-            <p><strong>Duration:</strong> 60 minutes</p>
+            <p><strong>Service:</strong> {serviceData.name}</p>
+            <p><strong>Duration:</strong> {serviceData.duration} minutes</p>
             <p><strong>Location:</strong> {serviceLocation === 'home' ? 'Home Service' : 'In-Store'}</p>
           </div>
           <div>
             <p><strong>Date:</strong> {date && formatDate(date)}</p>
             <p><strong>Time:</strong> {time}</p>
-            <p><strong>Price:</strong> ${serviceLocation === 'home' ? '150' : '120'}</p>
+            <p><strong>Price:</strong> ${serviceLocation === 'home' ? serviceData.homeServicePrice : serviceData.price}</p>
           </div>
         </div>
       </div>
@@ -279,7 +355,7 @@ export default function DetailsPage() {
       {/* Navigation */}
       <div className="flex justify-between">
         <Link
-          href={`/book/${slug}/appointment?service=${serviceId}`}
+          href={`/book/${slug}/appointment?service=${serviceId}&location=${serviceLocation}`}
           className="btn-secondary"
         >
           Back to Date & Time
