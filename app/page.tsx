@@ -79,7 +79,7 @@ export default function LandingPage() {
                       <div className="w-3 h-3 bg-yellow-400 rounded-full ml-2"></div>
                       <div className="w-3 h-3 bg-green-400 rounded-full ml-2"></div>
                     </div>
-                    <span className="text-white/60 text-sm">bookmyslot.com/book/sarah</span>
+                    <span className="text-white/60 text-sm">buukme.app/book/sarah</span>
                   </div>
                   <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                     <h3 className="text-white font-bold text-lg mb-4">Book with Sarah</h3>
