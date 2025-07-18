@@ -11,7 +11,7 @@ export default function LandingPage() {
             <div className="bg-gradient-to-r from-white to-blue-400 p-2 rounded-lg">
               <Zap className="h-5 w-5 text-blue-800" />
             </div>
-            <span className="ml-3 text-xl font-bold text-white">bookmyslot</span>
+            <span className="ml-3 text-xl font-bold text-white">BuukMe</span>
           </div>
           <div className="flex items-center space-x-4">
             <Link href="/login" className="text-white/80 hover:text-white transition-colors text-sm">
@@ -284,7 +284,7 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-white/10 pt-8 text-center">
-            <p className="text-white/60">&copy; 2025 bookmyslot. Built with ❤️ for beauty professionals everywhere.</p>
+            <p className="text-white/60">&copy; 2025 BuukMe. Built with ❤️ for beauty professionals everywhere.</p>
           </div>
         </div>
       </footer>
