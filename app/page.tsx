@@ -38,10 +38,7 @@ export default function LandingPage() {
               <h1 className="text-5xl lg:text-7xl font-black text-white leading-tight">
                 Your Clients
                 <span className="block text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-400">
-                  Book You
-                </span>
-                <span className="block text-white/80 text-3xl lg:text-4xl font-normal mt-2">
-                  Instantly
+                  Book You Instantly
                 </span>
               </h1>
               
@@ -259,7 +256,7 @@ export default function LandingPage() {
                 <div className="bg-gradient-to-r from-white to-blue-400 p-3 rounded-2xl">
                   <Zap className="h-6 w-6 text-blue-800" />
                 </div>
-                <span className="ml-3 text-2xl font-bold text-white">bookmyslot</span>
+                <span className="ml-3 text-2xl font-bold text-white">BuukMe</span>
               </div>
               <p className="text-white/70 max-w-md mb-6">
                 The future of appointment booking for beauty and wellness professionals. Simple, powerful, and always free.
