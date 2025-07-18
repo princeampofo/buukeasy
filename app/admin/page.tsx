@@ -186,7 +186,7 @@ export default function DashboardPage() {
                 }`}>
                   <p>
                     {trialInfo.isExpired 
-                      ? 'Upgrade to continue using all features of BookEasy.'
+                      ? 'Upgrade to continue using all features of BuukMe.'
                       : 'Upgrade now to continue enjoying all features without interruption.'
                     }
                   </p>
