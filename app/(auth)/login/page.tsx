@@ -190,7 +190,7 @@ export default function LoginPage() {
 
           <div className="mt-8 text-center">
             <p className="text-white/70">
-              New to bookmyslot?{' '}
+              New to BuukMe?{' '}
               <Link 
                 href="/signup" 
                 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-400 hover:from-blue-100 hover:to-blue-500 transition-all duration-300"
@@ -207,7 +207,7 @@ export default function LoginPage() {
               <p className="text-xs text-white/80 font-semibold">Demo Access</p>
             </div>
             <div className="text-xs text-white/70 space-y-1">
-              <p><span className="text-white/90 font-medium">Email:</span> demo@bookmyslot.com</p>
+              <p><span className="text-white/90 font-medium">Email:</span> demo@BuukMe.app</p>
               <p><span className="text-white/90 font-medium">Password:</span> demo123</p>
             </div>
           </div>
