@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { 
-  Save, 
-  ArrowLeft, 
-  Clock, 
-  DollarSign, 
-  Tag, 
+import { useAuthContext } from '@/contexts/AuthContext'
+import {
+  Save,
+  ArrowLeft,
+  Clock,
+  DollarSign,
+  Tag,
   FileText,
   AlertCircle,
   CheckCircle,
@@ -32,22 +33,30 @@ interface ServiceFormData {
 }
 
 const categories = [
-  'Hair Services',
-  'Grooming',
-  'Skin Care',
-  'Massage',
-  'Consultation',
-  'Wellness',
-  'Beauty',
-  'Other'
+  'HAIR_SERVICES',
+  'NAIL_CARE',
+  'SKIN_CARE',
+  'BARBERING',
+  'BEAUTY_TREATMENT',
+  'MASSAGE',
+  'OTHER'
 ]
+
+// Function to format category for display
+const formatCategory = (category: string) => {
+  return category
+    .split('_')
+    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(' ')
+}
 
 export default function NewServicePage() {
   const router = useRouter()
+  const { user } = useAuthContext()
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  
+
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
     description: '',
@@ -68,7 +77,7 @@ export default function NewServicePage() {
       ...prev,
       [field]: value
     }))
-    
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
@@ -88,13 +97,13 @@ export default function NewServicePage() {
         }))
         return
       }
-      
+
       const reader = new FileReader()
       reader.onloadend = () => {
         setImagePreview(reader.result as string)
       }
       reader.readAsDataURL(file)
-      
+
       handleInputChange('image', file)
     }
   }
@@ -144,8 +153,18 @@ export default function NewServicePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
+      return
+    }
+
+    if (!user) {
+      setErrors({ submit: 'You must be logged in to create a service' })
+      return
+    }
+
+    if (!user.businessSlug) {
+      setErrors({ submit: 'Business profile not found' })
       return
     }
 
@@ -153,7 +172,10 @@ export default function NewServicePage() {
 
     try {
       const submitData = new FormData()
-      
+
+      // Add entrepreneurId to form data using the business profile ID
+      submitData.append('entrepreneurId', user.businessSlug)
+
       Object.entries(formData).forEach(([key, value]) => {
         if (key === 'image' && value instanceof File) {
           submitData.append(key, value)
@@ -198,7 +220,7 @@ export default function NewServicePage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4">
-            <Link 
+            <Link
               href="/admin/services"
               className="flex items-center text-gray-500 hover:text-gray-700"
             >
@@ -246,9 +268,8 @@ export default function NewServicePage() {
                     id="name"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                    }`}
+                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     placeholder="e.g., Hair Cut & Style"
                   />
                   {errors.name && (
@@ -267,7 +288,7 @@ export default function NewServicePage() {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
+                      <option key={category} value={category}>{formatCategory(category)}</option>
                     ))}
                   </select>
                 </div>
@@ -282,9 +303,8 @@ export default function NewServicePage() {
                   rows={4}
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
+                  className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
                   placeholder="Describe your service..."
                 />
                 {errors.description && (
@@ -365,12 +385,11 @@ export default function NewServicePage() {
                       type="number"
                       id="duration"
                       min="1"
-                      step="5"
+                      step="1"
                       value={formData.duration}
                       onChange={(e) => handleInputChange('duration', parseInt(e.target.value) || 0)}
-                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.duration ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
+                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.duration ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        }`}
                     />
                   </div>
                   {errors.duration && (
@@ -391,9 +410,8 @@ export default function NewServicePage() {
                       step="0.01"
                       value={formData.price}
                       onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.price ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
+                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.price ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        }`}
                     />
                   </div>
                   {errors.price && (
@@ -410,7 +428,7 @@ export default function NewServicePage() {
                     type="number"
                     id="bufferTime"
                     min="0"
-                    step="5"
+                    step="1"
                     value={formData.bufferTime}
                     onChange={(e) => handleInputChange('bufferTime', parseInt(e.target.value) || 0)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -449,9 +467,8 @@ export default function NewServicePage() {
                           step="0.01"
                           value={formData.depositAmount}
                           onChange={(e) => handleInputChange('depositAmount', parseFloat(e.target.value) || 0)}
-                          className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors.depositAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                          }`}
+                          className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.depositAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                            }`}
                         />
                       </div>
                       {errors.depositAmount && (
@@ -498,9 +515,8 @@ export default function NewServicePage() {
                     min="1"
                     value={formData.maxAdvanceBooking}
                     onChange={(e) => handleInputChange('maxAdvanceBooking', parseInt(e.target.value) || 1)}
-                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.maxAdvanceBooking ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                    }`}
+                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.maxAdvanceBooking ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                   />
                   {errors.maxAdvanceBooking && (
                     <p className="mt-1 text-sm text-red-600">{errors.maxAdvanceBooking}</p>

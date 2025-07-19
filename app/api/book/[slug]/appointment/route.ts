@@ -1,5 +1,20 @@
 // app/api/book/[slug]/appointment/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { z } from 'zod'
+
+// Validation schema for booking creation
+const createBookingSchema = z.object({
+  customerName: z.string().min(1, 'Name is required'),
+  customerEmail: z.string().email('Valid email is required'),
+  customerPhone: z.string().optional(),
+  serviceId: z.string().min(1, 'Service ID is required'),
+  appointmentDate: z.string().refine((date) => !isNaN(new Date(date).getTime()), {
+    message: 'Valid appointment date is required'
+  }),
+  appointmentTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Valid time format required (HH:MM)'),
+  specialRequests: z.string().optional()
+})
 
 interface TimeSlot {
   time: string
@@ -7,46 +22,88 @@ interface TimeSlot {
   datetime: string
 }
 
-// Mock database for existing bookings - in production, this would be a real database
-const existingBookings = new Map<string, string[]>([
-  // Format: "YYYY-MM-DD" -> ["HH:MM", "HH:MM", ...]
-  ['2025-07-07', ['09:00', '10:30', '14:00', '15:30']],
-  ['2025-07-08', ['09:30', '11:00', '13:30', '16:00']],
-  ['2025-07-09', ['10:00', '11:30', '14:30', '15:00']],
-  ['2025-07-10', ['09:00', '12:00', '13:00', '16:30']],
-  ['2025-07-11', ['10:30', '14:00', '15:30', '17:00']],
-])
+// Helper function to check if a time slot is available
+async function isTimeSlotAvailable(
+  entrepreneurId: string,
+  date: Date,
+  time: string,
+  serviceId: string
+): Promise<boolean> {
+  // Get the service to check duration
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId }
+  })
+  
+  if (!service) return false
 
-// Mock business hours - in production, this would come from business settings
-const businessHours = {
-  monday: { start: 9, end: 18, closed: false },
-  tuesday: { start: 9, end: 18, closed: false },
-  wednesday: { start: 9, end: 18, closed: false },
-  thursday: { start: 9, end: 18, closed: false },
-  friday: { start: 9, end: 19, closed: false },
-  saturday: { start: 10, end: 17, closed: false },
-  sunday: { start: 11, end: 16, closed: false }
+  // Get the day of week (0 = Sunday, 1 = Monday, etc.)
+  const dayOfWeek = date.getDay()
+  
+  // Check if there's an available time slot for this day
+  const timeSlot = await prisma.timeSlot.findFirst({
+    where: {
+      entrepreneurId,
+      dayOfWeek,
+      isActive: true,
+      startTime: {
+        lte: time // time should be after start time
+      },
+      endTime: {
+        gte: time // time should be before end time
+      }
+    }
+  })
+
+  if (!timeSlot) return false
+
+  // Check for existing bookings in this time slot
+  const existingBooking = await prisma.booking.findFirst({
+    where: {
+      providerId: entrepreneurId,
+      appointmentDate: date,
+      appointmentTime: time,
+      status: {
+        notIn: ['CANCELLED', 'NO_SHOW']
+      }
+    }
+  })
+
+  return !existingBooking
 }
 
-
-const generateTimeSlots = (date: string, serviceId: string): TimeSlot[] => {
+// Generate available time slots for a given date
+async function generateTimeSlots(date: string, entrepreneurId: string, serviceId: string): Promise<TimeSlot[]> {
   const slots: TimeSlot[] = []
   const targetDate = new Date(date)
-  const dayOfWeek = targetDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as keyof typeof businessHours
+  const dayOfWeek = targetDate.getDay()
+
+  // Get entrepreneur's time slots for this day
+  const timeSlot = await prisma.timeSlot.findFirst({
+    where: {
+      entrepreneurId,
+      dayOfWeek,
+      isActive: true
+    }
+  })
+
+  if (!timeSlot) return slots
+
+  // Parse start and end times
+  const [startHour, startMinute] = timeSlot.startTime.split(':').map(Number)
+  const [endHour, endMinute] = timeSlot.endTime.split(':').map(Number)
   
-  // Check if business is closed on this day
-  const hours = businessHours[dayOfWeek]
-  if (hours.closed) {
-    return slots
-  }
-
-  const startHour = hours.start
-  const endHour = hours.end
   const interval = 30 // minutes
-  const existingBookingsForDate = existingBookings.get(date) || []
 
-  for (let hour = startHour; hour < endHour; hour++) {
+  for (let hour = startHour; hour <= endHour; hour++) {
     for (let minute = 0; minute < 60; minute += interval) {
+      // Skip times before start time or after end time
+      if (
+        (hour === startHour && minute < startMinute) ||
+        (hour === endHour && minute > endMinute)
+      ) {
+        continue
+      }
+
       const time = new Date(targetDate)
       time.setHours(hour, minute, 0, 0)
       
@@ -58,11 +115,8 @@ const generateTimeSlots = (date: string, serviceId: string): TimeSlot[] => {
 
       const timeKey = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
       
-      // Check if this time slot is already booked
-      const isBooked = existingBookingsForDate.includes(timeKey)
-      
-      // Add some randomness for demo purposes (in production, only check actual bookings)
-      const isAvailable = !isBooked && Math.random() > 0.2
+      // Check if this time slot is available
+      const isAvailable = await isTimeSlotAvailable(entrepreneurId, targetDate, timeKey, serviceId)
       
       slots.push({
         time: timeString,
@@ -75,16 +129,31 @@ const generateTimeSlots = (date: string, serviceId: string): TimeSlot[] => {
   return slots
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { slug: string } }
+) {
   try {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
     const serviceId = searchParams.get('serviceId')
     
-    if (!date) {
+    if (!date || !serviceId) {
       return NextResponse.json(
-        { error: 'Date parameter is required' },
+        { error: 'Date and service ID parameters are required' },
         { status: 400 }
+      )
+    }
+
+    // Find entrepreneur by slug
+    const entrepreneur = await prisma.entrepreneurProfile.findFirst({
+      where: { id: params.slug }
+    })
+
+    if (!entrepreneur) {
+      return NextResponse.json(
+        { error: 'Entrepreneur not found' },
+        { status: 404 }
       )
     }
 
@@ -104,12 +173,108 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ timeSlots: [] })
     }
 
-    const timeSlots = generateTimeSlots(date, serviceId || '1')
+    const timeSlots = await generateTimeSlots(date, entrepreneur.id, serviceId)
     
     return NextResponse.json({ timeSlots })
   } catch (error) {
+    console.error('Error generating time slots:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { slug: string } }
+) {
+  try {
+    const body = await request.json()
+    
+    // Validate input
+    const validatedData = createBookingSchema.parse(body)
+    
+    // Find entrepreneur by slug
+    const entrepreneur = await prisma.entrepreneurProfile.findFirst({
+      where: { id: params.slug },
+      include: { user: true }
+    })
+
+    if (!entrepreneur) {
+      return NextResponse.json(
+        { error: 'Entrepreneur not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get service details
+    const service = await prisma.service.findUnique({
+      where: { id: validatedData.serviceId }
+    })
+
+    if (!service) {
+      return NextResponse.json(
+        { error: 'Service not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check if time slot is available
+    const appointmentDate = new Date(validatedData.appointmentDate)
+    const isAvailable = await isTimeSlotAvailable(
+      entrepreneur.id,
+      appointmentDate,
+      validatedData.appointmentTime,
+      validatedData.serviceId
+    )
+
+    if (!isAvailable) {
+      return NextResponse.json(
+        { error: 'This time slot is no longer available' },
+        { status: 400 }
+      )
+    }
+
+    // Create the booking
+    const booking = await prisma.booking.create({
+      data: {
+        customerName: validatedData.customerName,
+        customerEmail: validatedData.customerEmail,
+        customerPhone: validatedData.customerPhone,
+        providerId: entrepreneur.user.id,
+        serviceId: validatedData.serviceId,
+        appointmentDate,
+        appointmentTime: validatedData.appointmentTime,
+        duration: service.duration,
+        totalAmount: service.price,
+        specialRequests: validatedData.specialRequests,
+        status: 'PENDING'
+      }
+    })
+
+    return NextResponse.json(
+      { 
+        success: true, 
+        data: booking 
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error('Booking creation error:', error)
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid input data',
+          details: error.errors
+        },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to create booking' },
       { status: 500 }
     )
   }

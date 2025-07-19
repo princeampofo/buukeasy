@@ -3,25 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { z } from 'zod'
-
-// In a real app, you'd use a database like Prisma, Supabase, or MongoDB
-// For now, this is a mock implementation
-const mockUsers = [
-  {
-    id: '1',
-    email: 'demo@bookmyslot.com',
-    password: '$2a$12$Ld1LcgeR3bPwwU9cWLiSHe5LqJswoi0iuW3kpkKgtrLjWtbzv.lUm', // hashed "demo123"
-    firstName: 'Demo',
-    lastName: 'User',
-    businessName: 'Demo Business',
-    createdAt: new Date(),
-  }
-]
+import prisma from '@/lib/prisma'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
-  rememberMe: z.boolean().optional().default(false), // Add rememberMe validation
+  rememberMe: z.boolean().optional().default(false),
 })
 
 export async function POST(request: NextRequest) {
@@ -33,7 +20,12 @@ export async function POST(request: NextRequest) {
     const { email, password, rememberMe } = validatedData
 
     // Find user by email
-    const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase())
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: {
+        entrepreneurProfile: true,
+      },
+    })
     
     if (!user) {
       return NextResponse.json(
@@ -44,11 +36,8 @@ export async function POST(request: NextRequest) {
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password)
-
-    console.log(isPasswordValid ? 'Password is valid' : 'Password is invalid')
     
     if (!isPasswordValid) {
-      console.error('Login failed: Invalid password for user:', email)
       return NextResponse.json(
         { message: 'Invalid email or password' },
         { status: 401 }
@@ -56,18 +45,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine token expiration based on rememberMe
-    const tokenExpiry = rememberMe ? '7d' : '1d'  // 30 days vs 0 days
+    const tokenExpiry = rememberMe ? '7d' : '1d'
     const cookieMaxAge = rememberMe 
       ? 60 * 60 * 24 * 7  // 7 days in seconds
-      : 60 * 60 * 24 // 1 days in seconds
+      : 60 * 60 * 24 // 1 day in seconds
 
-    // Generate JWT token with appropriate expiration
+    // Generate JWT token
     const token = jwt.sign(
       { 
-        userId: user.id, 
+        userId: user.id,
         email: user.email,
-        businessName: user.businessName,
-        rememberMe: rememberMe  // Store rememberMe flag in token
+        role: user.role,
+        businessName: user.entrepreneurProfile?.businessName,
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this-in-production',
       { expiresIn: tokenExpiry }
@@ -77,23 +66,28 @@ export async function POST(request: NextRequest) {
     const userData = {
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      businessName: user.businessName,
+      name: user.name,
+      role: user.role,
+      isVerified: user.isVerified,
+      ...(user.entrepreneurProfile && {
+        businessName: user.entrepreneurProfile.businessName,
+        businessSlug: user.entrepreneurProfile.id,
+        isActive: user.entrepreneurProfile.isActive,
+      }),
     }
 
     // Set HTTP-only cookie with appropriate expiration
     const response = NextResponse.json({
       message: 'Login successful',
       user: userData,
-      rememberMe: rememberMe, // Let frontend know the remember me status
+      rememberMe: rememberMe,
     })
 
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: cookieMaxAge,  // Dynamic based on rememberMe
+      maxAge: cookieMaxAge,
       path: '/',
     })
 

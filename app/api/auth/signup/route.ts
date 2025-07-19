@@ -3,19 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { z } from 'zod'
-
-// Mock database - replace with real database in production
-let mockUsers = [
-  {
-    id: '1',
-    email: 'demo@bookeasy.com',
-    password: '$2a$12$/vyWQN1YhTI1Z8A0HamzxenWYB7.rCpN6pBFifx4MZ6lm0wYYcCUy',
-    firstName: 'Demo',
-    lastName: 'User',
-    businessName: 'Demo Business',
-    createdAt: new Date(),
-  }
-]
+import prisma from '@/lib/prisma'
+import type { SignupData, User, EntrepreneurProfile } from '@/types/auth'
+import { PrismaClient } from '@prisma/client'
 
 const signupSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
@@ -28,10 +18,6 @@ const signupSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/\d/, 'Password must contain at least one number'),
 })
-
-function generateUserId(): string {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 9)
-}
 
 function generateBusinessSlug(businessName: string): string {
   return businessName
@@ -50,7 +36,9 @@ export async function POST(request: NextRequest) {
     const { firstName, lastName, email, businessName, password } = validatedData
 
     // Check if user already exists
-    const existingUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase())
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    })
     
     if (existingUser) {
       return NextResponse.json(
@@ -63,45 +51,78 @@ export async function POST(request: NextRequest) {
     const saltRounds = 10
     const hashedPassword = await bcrypt.hash(password, saltRounds)
 
-    // Create new user
-    const newUser = {
-      id: generateUserId(),
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      firstName,
-      lastName,
-      businessName,
-      businessSlug: generateBusinessSlug(businessName),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true,
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
-    }
+    // Create new user and entrepreneur profile in a transaction
+    const result = await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use'>) => {
+      // Create user
+      const user = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          name: `${firstName} ${lastName}`,
+          role: 'ENTREPRENEUR',
+          isVerified: false,
+        },
+      })
 
-    // Add to mock database
-    mockUsers.push(newUser)
+      // Create entrepreneur profile with placeholder values
+      const profile = await tx.entrepreneurProfile.create({
+        data: {
+          userId: user.id,
+          businessName,
+          address: 'PENDING_SETUP',
+          city: 'PENDING_SETUP',
+          state: 'PENDING_SETUP',
+          zipCode: 'PENDING_SETUP',
+          isActive: false, // Set to false until business setup is complete
+          isVerified: false,
+          timezone: 'Eastern Time',
+          currency: 'USD',
+          averageRating: 0,
+          totalReviews: 0,
+        },
+      })
+
+      // Create default notification settings
+      await tx.notificationSettings.create({
+        data: {
+          userId: user.id,
+          emailBookings: true,
+          emailCancellations: true,
+          emailReminders: true,
+          smsBookings: false,
+          smsCancellations: false,
+          smsReminders: false,
+          marketingEmails: true,
+          weeklyReports: true,
+        },
+      })
+
+      return { user, profile }
+    })
 
     // Generate JWT token
     const token = jwt.sign(
       { 
-        userId: newUser.id, 
-        email: newUser.email,
-        businessName: newUser.businessName 
+        userId: result.user.id,
+        email: result.user.email,
+        role: result.user.role,
+        businessName: result.profile.businessName,
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this-in-production',
       { expiresIn: '7d' }
     )
 
-    // Create response with user data (excluding password)
+    // Create response with user data
     const userData = {
-      id: newUser.id,
-      email: newUser.email,
-      firstName: newUser.firstName,
-      lastName: newUser.lastName,
-      businessName: newUser.businessName,
-      businessSlug: newUser.businessSlug,
-      isActive: newUser.isActive,
-      trialEndsAt: newUser.trialEndsAt,
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
+      isVerified: result.user.isVerified,
+      businessName: result.profile.businessName,
+      businessSlug: result.profile.id,
+      isActive: result.profile.isActive,
+      needsSetup: true, // Add this flag to indicate setup is needed
     }
 
     // Set HTTP-only cookie with the token

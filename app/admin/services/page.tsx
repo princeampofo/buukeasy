@@ -2,6 +2,7 @@
 
 import { useState, useEffect} from 'react'
 import Link from 'next/link'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { 
   Plus, 
   Search, 
@@ -12,54 +13,91 @@ import {
 } from 'lucide-react'
 
 interface Service {
-  id: number
+  id: string
   name: string
-  description: string
+  description: string | null
   duration: number
   price: number
   category: string
-  bookings: number
+  bufferTime: number
+  requireDeposit: boolean
+  minAdvanceHours: number
+  maxAdvanceDays: number
+  specialInstructions: string | null
+  imageUrl: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
 }
 
+const categories = [
+  'All',
+  'HAIR_SERVICES',
+  'NAIL_CARE',
+  'SKIN_CARE',
+  'BARBERING',
+  'BEAUTY_TREATMENT',
+  'MASSAGE',
+  'OTHER'
+]
 
-const categories = ['All', 'Hair Services', 'Grooming', 'Consultation']
+// Function to format category for display
+const formatCategory = (category: string) => {
+  if (category === 'All') return category
+  return category
+    .split('_')
+    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(' ')
+}
 
 export default function ServicesPage() {
+  const { user } = useAuthContext()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
-  // Replace mock services with state:
   const [services, setServices] = useState<Service[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchServices()
-  }, [])
+    if (user?.businessSlug) {
+      fetchServices()
+    }
+  }, [user])
 
   const filteredServices = services.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         service.description.toLowerCase().includes(searchTerm.toLowerCase())
+                         (service.description?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === 'All' || service.category === selectedCategory
     
     return matchesSearch && matchesCategory
   })
 
   const fetchServices = async () => {
+    if (!user?.businessSlug) return
+
     try {
       setIsLoading(true)
-      const response = await fetch('/api/admin/services')
+      setError(null)
+      const response = await fetch(`/api/admin/services?entrepreneurId=${user.businessSlug}`)
       if (!response.ok) throw new Error('Failed to fetch services')
       
       const data = await response.json()
-      setServices(data.services)
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch services')
+      }
+      
+      setServices(data.data)
     } catch (error) {
       console.error('Error fetching services:', error)
+      setError(error instanceof Error ? error.message : 'Failed to fetch services')
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Update handleDeleteService:
-  const handleDeleteService = async (id: number) => {
+  const handleDeleteService = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this service?')) return
+
     try {
       const response = await fetch(`/api/admin/services/${id}`, {
         method: 'DELETE'
@@ -67,9 +105,12 @@ export default function ServicesPage() {
       
       if (response.ok) {
         setServices(prev => prev.filter(service => service.id !== id))
+      } else {
+        throw new Error('Failed to delete service')
       }
     } catch (error) {
       console.error('Error deleting service:', error)
+      alert('Failed to delete service')
     }
   }
 
@@ -79,6 +120,28 @@ export default function ServicesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error loading services</h3>
+                <p className="mt-2 text-sm text-red-700">{error}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -135,7 +198,7 @@ export default function ServicesPage() {
               className="block pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
             >
               {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
+                <option key={category} value={category}>{formatCategory(category)}</option>
               ))}
             </select>
           </div>
@@ -158,8 +221,8 @@ export default function ServicesPage() {
                             {service.name}
                           </h3>
                         </div>
-                        <p className="mt-1 text-sm text-gray-500">{service.description}</p>
-                        <p className="mt-2 text-xs text-gray-400">{service.category}</p>
+                        <p className="mt-1 text-sm text-gray-500">{service.description || 'No description available'}</p>
+                        <p className="mt-2 text-xs text-gray-400">{formatCategory(service.category)}</p>
                       </div>
                     </div>
 
@@ -176,7 +239,9 @@ export default function ServicesPage() {
                       </div>
                       <div className="flex items-center text-sm text-gray-500">
                         <Users className="h-4 w-4 mr-1" />
-                        {service.bookings} bookings
+                        {/* Assuming bookings count is not directly available in the new Service interface */}
+                        {/* For now, we'll show a placeholder or remove if not needed */}
+                        {/* <span>{service.bookings}</span> bookings */}
                       </div>
                     </div>
 

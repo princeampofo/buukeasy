@@ -1,165 +1,144 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
 
-interface TimeSlot {
-  start: string
-  end: string
+// Map of day numbers to day names (0 = Sunday, 1 = Monday, etc.)
+const dayNumberToName = {
+  0: 'sunday',
+  1: 'monday',
+  2: 'tuesday',
+  3: 'wednesday',
+  4: 'thursday',
+  5: 'friday',
+  6: 'saturday'
 }
 
-interface DaySchedule {
-  enabled: boolean
-  slots: TimeSlot[]
-}
-
-interface WeeklySchedule {
-  [key: string]: DaySchedule
-}
-
-// Default schedule structure
-const defaultSchedule: WeeklySchedule = {
-  monday: {
-    enabled: true,
-    slots: [
-      { start: '09:00', end: '12:00' },
-      { start: '13:00', end: '17:00' }
-    ]
-  },
-  tuesday: {
-    enabled: true,
-    slots: [
-      { start: '09:00', end: '12:00' },
-      { start: '13:00', end: '17:00' }
-    ]
-  },
-  wednesday: {
-    enabled: true,
-    slots: [
-      { start: '09:00', end: '12:00' },
-      { start: '13:00', end: '17:00' }
-    ]
-  },
-  thursday: {
-    enabled: true,
-    slots: [
-      { start: '09:00', end: '12:00' },
-      { start: '13:00', end: '17:00' }
-    ]
-  },
-  friday: {
-    enabled: true,
-    slots: [
-      { start: '09:00', end: '12:00' },
-      { start: '13:00', end: '17:00' }
-    ]
-  },
-  saturday: {
-    enabled: true,
-    slots: [
-      { start: '10:00', end: '16:00' }
-    ]
-  },
-  sunday: {
-    enabled: false,
-    slots: []
-  }
-}
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // TODO: Replace with actual database fetch
-    // const availability = await fetchAvailabilityFromDB()
-    
-    // For now, return default schedule
-    // In production, you would fetch this from your database
-    const availability = defaultSchedule
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('entrepreneurId')
 
-    return NextResponse.json({
-      success: true,
-      data: availability
-    })
-  } catch (error) {
-    console.error('Error fetching availability:', error)
-    return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to fetch availability' 
-      },
-      { status: 500 }
-    )
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const availabilityData = await request.json()
-    
-    // Validate the data structure
-    if (!availabilityData || typeof availabilityData !== 'object') {
+    if (!userId) {
       return NextResponse.json(
-        { 
-          success: false,
-          error: 'Invalid availability data' 
-        },
+        { success: false, error: 'User ID required' },
         { status: 400 }
       )
     }
 
-    // Validate each day's schedule
-    const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-    for (const day of daysOfWeek) {
-      if (!availabilityData[day] || typeof availabilityData[day] !== 'object') {
-        return NextResponse.json(
-          { 
-            success: false,
-            error: `Invalid schedule data for ${day}` 
-          },
-          { status: 400 }
-        )
-      }
-
-      const daySchedule = availabilityData[day] as DaySchedule
-      if (typeof daySchedule.enabled !== 'boolean' || !Array.isArray(daySchedule.slots)) {
-        return NextResponse.json(
-          { 
-            success: false,
-            error: `Invalid schedule structure for ${day}` 
-          },
-          { status: 400 }
-        )
-      }
-
-      // Validate time slots
-      for (const slot of daySchedule.slots) {
-        if (!slot.start || !slot.end || typeof slot.start !== 'string' || typeof slot.end !== 'string') {
-          return NextResponse.json(
-            { 
-              success: false,
-              error: `Invalid time slot format for ${day}` 
-            },
-            { status: 400 }
-          )
-        }
-      }
-    }
-    
-    // TODO: Save to database
-    // await updateAvailabilityInDB(availabilityData)
-    
-    // For now, just log the data (in production, save to database)
-    console.log('Availability data to save:', availabilityData)
-
-    return NextResponse.json({ 
-      success: true,
-      message: 'Availability updated successfully',
-      data: availabilityData 
+    // Get the entrepreneur profile ID
+    const profile = await prisma.entrepreneurProfile.findUnique({
+      where: { userId }
     })
+
+    if (!profile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+
+    const timeSlots = await prisma.timeSlot.findMany({
+      where: { entrepreneurId: profile.id },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }]
+    })
+
+    // Initialize empty schedule with all days
+    const schedule = {
+      monday: { enabled: false, slots: [] },
+      tuesday: { enabled: false, slots: [] },
+      wednesday: { enabled: false, slots: [] },
+      thursday: { enabled: false, slots: [] },
+      friday: { enabled: false, slots: [] },
+      saturday: { enabled: false, slots: [] },
+      sunday: { enabled: false, slots: [] }
+    }
+
+    // Group slots by day and format them
+    timeSlots.forEach(slot => {
+      const dayName = dayNumberToName[slot.dayOfWeek]
+      if (!schedule[dayName].enabled) {
+        schedule[dayName].enabled = true
+      }
+      schedule[dayName].slots.push({
+        start: slot.startTime,
+        end: slot.endTime
+      })
+    })
+
+    return NextResponse.json({ success: true, data: schedule })
   } catch (error) {
-    console.error('Error updating availability:', error)
+    console.error('Error fetching availability:', error)
     return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to update availability' 
-      },
+      { success: false, error: 'Failed to fetch availability' },
       { status: 500 }
     )
   }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { entrepreneurId: userId, availabilityData } = body
+
+    // Get the entrepreneur profile ID
+    const profile = await prisma.entrepreneurProfile.findUnique({
+      where: { userId }
+    })
+
+    if (!profile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+
+    // Delete existing slots for this entrepreneur
+    await prisma.timeSlot.deleteMany({
+      where: { entrepreneurId: profile.id }
+    })
+
+    // Create new slots
+    const slotsToCreate = []
+    for (const [dayOfWeek, dayData] of Object.entries(availabilityData)) {
+      const dayNumber = getDayNumber(dayOfWeek) // Convert day name to number
+      if (dayData.enabled && Array.isArray(dayData.slots)) {
+        for (const slot of dayData.slots) {
+          slotsToCreate.push({
+            entrepreneurId: profile.id,
+            dayOfWeek: dayNumber,
+            startTime: slot.start,
+            endTime: slot.end,
+            isActive: true
+          })
+        }
+      }
+    }
+
+    if (slotsToCreate.length > 0) {
+      await prisma.timeSlot.createMany({
+        data: slotsToCreate
+      })
+    }
+
+    return NextResponse.json({ success: true, message: 'Availability updated' })
+  } catch (error) {
+    console.error('Availability update error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to update availability' },
+      { status: 500 }
+    )
+  }
+}
+
+// Helper function to convert day name to number (0-6, where 0 is Sunday)
+function getDayNumber(dayName: string): number {
+  const days = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6
+  }
+  return days[dayName.toLowerCase()] || 0
 }
