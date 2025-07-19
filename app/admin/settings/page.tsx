@@ -21,6 +21,7 @@ import {
   EyeOff,
   Loader2
 } from 'lucide-react'
+import { useBilling } from '@/hooks/useBilling'
 
 interface BusinessSettings {
   businessName: string
@@ -99,6 +100,8 @@ export default function SettingsPage() {
     newPassword: '',
     confirmPassword: ''
   })
+
+  const { billingInfo, isLoading: isBillingLoading, error: billingError, downloadInvoice } = useBilling('current-user-id') // TODO: Replace with actual user ID
 
   // Load initial data
   useEffect(() => {
@@ -767,142 +770,144 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="px-6 py-4 space-y-6">
-              {/* Current Plan */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-4">
-                  Current Plan
-                </h4>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h5 className="text-lg font-semibold text-blue-900">Premium Plan</h5>
-                      <p className="text-blue-700">Unlimited appointments and advanced features</p>
-                      <p className="text-sm text-blue-600 mt-2">
-                        Next billing date: July 18, 2025
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-900">$29</div>
-                      <div className="text-sm text-blue-700">per month</div>
+              {billingError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-red-400" />
+                    <div className="ml-3">
+                      <p className="text-sm text-red-800">{billingError}</p>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Plan Features */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-4">
-                  Plan Features
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">Unlimited appointments</span>
-                    </div>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">Advanced analytics</span>
-                    </div>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">SMS notifications</span>
-                    </div>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">Custom branding</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">Priority support</span>
-                    </div>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">API access</span>
-                    </div>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">Export data</span>
-                    </div>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <span className="text-sm text-gray-700">Multi-location support</span>
-                    </div>
+              {isBillingLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="flex items-center">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span className="text-gray-600">Loading billing information...</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Payment Method */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-4">
-                  Payment Method
-                </h4>
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <CreditCard className="h-5 w-5 text-gray-400 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">•••• •••• •••• 4242</p>
-                        <p className="text-xs text-gray-500">Expires 12/27</p>
+              ) : billingInfo && (
+                <>
+                  {/* Current Plan */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">
+                      Current Plan
+                    </h4>
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="text-lg font-semibold text-blue-900">{billingInfo.currentPlan.name}</h5>
+                          <p className="text-blue-700">{billingInfo.currentPlan.description}</p>
+                          <p className="text-sm text-blue-600 mt-2">
+                            Next billing date: {billingInfo.currentPlan.nextBillingDate}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-900">
+                            {billingInfo.currentPlan.currency} {billingInfo.currentPlan.price}
+                          </div>
+                          <div className="text-sm text-blue-700">
+                            per {billingInfo.currentPlan.interval}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="text-sm text-blue-600 hover:text-blue-500 font-medium"
-                    >
-                      Update
-                    </button>
                   </div>
-                </div>
-              </div>
 
-              {/* Billing History */}
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-4">
-                  Recent Invoices
-                </h4>
-                <div className="space-y-3">
-                  {[
-                    { date: 'June 18, 2025', amount: '$29.00', status: 'Paid' },
-                    { date: 'May 18, 2025', amount: '$29.00', status: 'Paid' },
-                    { date: 'April 18, 2025', amount: '$29.00', status: 'Paid' }
-                  ].map((invoice, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{invoice.date}</p>
-                        <p className="text-xs text-gray-500">Premium Plan</p>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-sm font-medium text-gray-900">{invoice.amount}</span>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {invoice.status}
-                        </span>
-                        <button className="text-sm text-blue-600 hover:text-blue-500">
-                          Download
+                  {/* Plan Features */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">
+                      Plan Features
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {billingInfo.currentPlan.features.map((feature, index) => (
+                        <div key={index} className="flex items-center">
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                          <span className="text-sm text-gray-700">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">
+                      Payment Method
+                    </h4>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <CreditCard className="h-5 w-5 text-gray-400 mr-3" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">•••• •••• •••• {billingInfo.paymentMethod.last4}</p>
+                            <p className="text-xs text-gray-500">Expires {billingInfo.paymentMethod.expiryDate}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+                          onClick={() => {/* TODO: Implement payment method update */}}
+                        >
+                          Update
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* Actions */}
-              <div className="flex space-x-4 pt-6 border-t">
-                <button
-                  type="button"
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  Change Plan
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Update Payment Method
-                </button>
-              </div>
+                  {/* Billing History */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">
+                      Recent Invoices
+                    </h4>
+                    <div className="space-y-3">
+                      {billingInfo.recentInvoices.map((invoice) => (
+                        <div key={invoice.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{invoice.date}</p>
+                            <p className="text-xs text-gray-500">{billingInfo.currentPlan.name}</p>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-sm font-medium text-gray-900">
+                              {billingInfo.currentPlan.currency} {invoice.amount}
+                            </span>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              invoice.status === 'paid' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                            </span>
+                            <button 
+                              className="text-sm text-blue-600 hover:text-blue-500"
+                              onClick={() => downloadInvoice(invoice.id)}
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex space-x-4 pt-6 border-t">
+                    <button
+                      type="button"
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Change Plan
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      Update Payment Method
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

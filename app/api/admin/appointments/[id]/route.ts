@@ -1,27 +1,37 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
 
-export async function PUT(
-  request: Request,
-  context: { params: { id: string } }
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   try {
-    // await the params getter, then extract id
-    const { id: appointmentId } = await context.params
+    const body = await request.json()
+    const { status, modificationNote } = body
 
-    // parse the incoming JSON
-    const { status } = await request.json()
-    
-    // TODO: Update appointment status in database
-    const updatedAppointment = {
-      id: parseInt(appointmentId, 10),
-      status,
-      updatedAt: new Date().toISOString(),
-    }
+    const appointment = await prisma.booking.update({
+      where: { id: params.id },
+      data: {
+        status: status.toUpperCase(),
+        ...(status === 'confirmed' && { confirmedAt: new Date() }),
+        ...(status === 'completed' && { completedAt: new Date() }),
+        ...(status === 'cancelled' && { cancelledAt: new Date() }),
+        ...(status === 'modified' && {
+          modifiedAt: new Date(),
+          modificationNote
+        })
+      },
+      include: {
+        customer: true,
+        service: true
+      }
+    })
 
-    return NextResponse.json(updatedAppointment)
+    return NextResponse.json({ success: true, data: appointment })
   } catch (error) {
+    console.error('Appointment update error:', error)
     return NextResponse.json(
-      { error: 'Failed to update appointment' },
+      { success: false, error: 'Failed to update appointment' },
       { status: 500 }
     )
   }

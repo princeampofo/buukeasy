@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { 
   Clock, 
   Plus, 
@@ -56,6 +57,7 @@ const emptySchedule: WeeklySchedule = {
 }
 
 export default function AvailabilityPage() {
+  const { user } = useAuthContext()
   const [schedule, setSchedule] = useState<WeeklySchedule>(emptySchedule)
   const [originalSchedule, setOriginalSchedule] = useState<WeeklySchedule>(emptySchedule)
   const [hasChanges, setHasChanges] = useState(false)
@@ -80,7 +82,12 @@ export default function AvailabilityPage() {
       setIsLoading(true)
       setError(null)
       
-      const response = await fetch('/api/admin/availability')
+      if (!user?.id) {
+        setError('User not authenticated')
+        return
+      }
+      
+      const response = await fetch(`/api/admin/availability?entrepreneurId=${user.id}`)
       const result: ApiResponse = await response.json()
       
       if (result.success && result.data) {
@@ -165,14 +172,22 @@ export default function AvailabilityPage() {
   const handleSave = async () => {
     setIsSaving(true)
     setSaveStatus('idle')
+    setError(null)
     
     try {
+      if (!user?.id) {
+        throw new Error('User not authenticated')
+      }
+
       const response = await fetch('/api/admin/availability', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(schedule),
+        body: JSON.stringify({
+          entrepreneurId: user.id,
+          availabilityData: schedule
+        }),
       })
 
       const result: ApiResponse = await response.json()
@@ -184,11 +199,15 @@ export default function AvailabilityPage() {
       } else {
         setSaveStatus('error')
         setError(result.error || 'Failed to save availability')
+        // Reset schedule to original state on error
+        setSchedule({ ...originalSchedule })
       }
     } catch (err) {
       setSaveStatus('error')
       setError('Failed to save availability')
       console.error('Error saving availability:', err)
+      // Reset schedule to original state on error
+      setSchedule({ ...originalSchedule })
     } finally {
       setIsSaving(false)
     }

@@ -1,23 +1,7 @@
 // src/app/api/auth/me/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-
-// Mock database - same as in other auth routes
-const mockUsers = [
-  {
-    id: '1',
-    email: 'demo@bookmyslot.com',
-    password: '$2a$12$Ld1LcgeR3bPwwU9cWLiSHe5LqJswoi0iuW3kpkKgtrLjWtbzv.lUm',
-    firstName: 'Demo',
-    lastName: 'User',
-    businessName: 'Demo Business',
-    businessSlug: 'demo-business',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    isActive: true,
-    trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-  }
-]
+import prisma from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,10 +19,16 @@ export async function GET(request: NextRequest) {
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || 'your-secret-key-change-this-in-production'
-    ) as { userId: string; email: string; businessName: string }
+    ) as { userId: string; email: string; role: string }
 
-    // Find user
-    const user = mockUsers.find(u => u.id === decoded.userId)
+    // Find user with entrepreneur profile
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      include: {
+        entrepreneurProfile: true,
+        notificationSettings: true,
+      },
+    })
 
     if (!user) {
       return NextResponse.json(
@@ -51,12 +41,15 @@ export async function GET(request: NextRequest) {
     const userData = {
       id: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      businessName: user.businessName,
-      businessSlug: user.businessSlug,
-      isActive: user.isActive,
-      trialEndsAt: user.trialEndsAt,
+      name: user.name,
+      role: user.role,
+      isVerified: user.isVerified,
+      ...(user.entrepreneurProfile && {
+        businessName: user.entrepreneurProfile.businessName,
+        businessSlug: user.entrepreneurProfile.id,
+        isActive: user.entrepreneurProfile.isActive,
+      }),
+      notificationSettings: user.notificationSettings,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     }

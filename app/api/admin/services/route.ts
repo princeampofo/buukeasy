@@ -1,115 +1,88 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Mock services data - replace with database query
-    const services = [
-      {
-        id: 1,
-        name: 'Hair Cut & Style',
-        description: 'Professional haircut with styling consultation',
-        duration: 60,
-        price: 75,
-        category: 'Hair Services',
-        bookings: 24,
-        requiresDeposit: true,
-        depositAmount: 20,
-        maxAdvanceBooking: 30,
-        minAdvanceBooking: 1,
-        bufferTime: 15,
-        instructions: 'Please arrive 10 minutes early for consultation',
-        imageUrl: '',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        name: 'Manicure & Pedicure',
-        description: 'Relaxing manicure and pedicure session',
-        duration: 90,
-        price: 50,
-        category: 'Nail Services',
-        bookings: 15,
-        requiresDeposit: false,
-        depositAmount: 0,
-        maxAdvanceBooking: 14,
-        minAdvanceBooking: 1,
-        bufferTime: 10,
-        instructions: 'Please bring your own nail polish if preferred',
-        imageUrl: '',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 3,
-        name: 'Full Body Massage',
-        description: 'Relaxing full body massage therapy',
-        duration: 120,
-        price: 100,
-        category: 'Massage Therapy',
-        bookings: 30,
-        requiresDeposit: true,
-        depositAmount: 30,
-        maxAdvanceBooking: 60,
-        minAdvanceBooking: 1,
-        bufferTime: 20,
-        instructions: 'Arrive in comfortable clothing',
-        imageUrl: '',
-        createdAt: new Date().toISOString()
-      }
-      // Add more services
-    ]
+    const { searchParams } = new URL(request.url)
+    const entrepreneurId = searchParams.get('entrepreneurId')
+    
+    if (!entrepreneurId) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur ID required' },
+        { status: 400 }
+      )
+    }
 
-    console.log('Fetched services:', services)
-    return NextResponse.json({ services })
+    const services = await prisma.service.findMany({
+      where: { entrepreneurId },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    return NextResponse.json({ success: true, data: services })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch services' },
+      { success: false, error: 'Failed to fetch services' },
       { status: 500 }
     )
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     
-    const serviceData = {
-      name: formData.get('name') as string,
-      description: formData.get('description') as string,
-      category: formData.get('category') as string,
-      duration: parseInt(formData.get('duration') as string),
-      price: parseFloat(formData.get('price') as string),
-      requiresDeposit: formData.get('requiresDeposit') === 'true',
-      depositAmount: parseFloat(formData.get('depositAmount') as string) || 0,
-      maxAdvanceBooking: parseInt(formData.get('maxAdvanceBooking') as string),
-      minAdvanceBooking: parseInt(formData.get('minAdvanceBooking') as string),
-      bufferTime: parseInt(formData.get('bufferTime') as string),
-      instructions: formData.get('instructions') as string
+    // Extract data from FormData
+    const name = formData.get('name') as string
+    const category = formData.get('category') as string
+    const description = formData.get('description') as string
+    const duration = formData.get('duration') as string
+    const price = formData.get('price') as string
+    const bufferTime = formData.get('bufferTime') as string
+    const requireDeposit = formData.get('requiresDeposit') === 'true'
+    const minAdvanceHours = formData.get('minAdvanceBooking') as string
+    const maxAdvanceDays = formData.get('maxAdvanceBooking') as string
+    const specialInstructions = formData.get('instructions') as string
+    const image = formData.get('image') as File | null
+
+    // Validation
+    if (!name || !category || !duration) {
+      return NextResponse.json(
+        { success: false, error: 'Name, category, and duration are required' },
+        { status: 400 }
+      )
     }
 
-    // Handle image upload
-    const image = formData.get('image') as File
+    // TODO: Handle image upload if needed
     let imageUrl = null
-    
-    if (image && image.size > 0) {
-      // TODO: Upload image to storage service (AWS S3, Cloudinary, etc.)
-      // imageUrl = await uploadImage(image)
-      console.log('Image upload would happen here:', image.name)
+    if (image) {
+      // Add image upload logic here
+      // For now, we'll skip this
     }
 
-    // TODO: Save to database
-    const newService = {
-      id: Date.now(), // Generate proper ID
-      ...serviceData,
-      imageUrl,
-      createdAt: new Date().toISOString()
-    }
+    const service = await prisma.service.create({
+      data: {
+        entrepreneurId: formData.get('entrepreneurId') as string,
+        name,
+        category,
+        description: description || null,
+        duration: parseInt(duration),
+        price: parseFloat(price) || 0,
+        bufferTime: parseInt(bufferTime) || 0,
+        requireDeposit,
+        minAdvanceHours: parseInt(minAdvanceHours) || 1,
+        maxAdvanceDays: parseInt(maxAdvanceDays) || 30,
+        specialInstructions: specialInstructions || null,
+        imageUrl
+      }
+    })
 
-    console.log('Created new service:', newService)
-    return NextResponse.json(newService, { status: 201 })
+    return NextResponse.json({ success: true, data: service }, { status: 201 })
   } catch (error) {
+    console.error('Service creation error:', error)
     return NextResponse.json(
-      { error: 'Failed to create service' },
+      { success: false, error: 'Failed to create service' },
       { status: 500 }
     )
   }
 }
+
