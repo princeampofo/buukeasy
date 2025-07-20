@@ -19,9 +19,12 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  Clipboard
 } from 'lucide-react'
 import { useBilling } from '@/hooks/useBilling'
+import { useAuthContext } from '@/contexts/AuthContext'
+import Link from 'next/link'
 
 interface BusinessSettings {
   businessName: string
@@ -65,6 +68,8 @@ export default function SettingsPage() {
     new: false,
     confirm: false
   })
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false)
+  const { user } = useAuthContext()
 
   // Business settings state
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings>({
@@ -210,6 +215,13 @@ export default function SettingsPage() {
            /\d/.test(passwordData.newPassword)
   }
 
+  const copyBookingUrl = async () => {
+    const url = `${window.location.origin}/book/${user?.businessSlug}`
+    await navigator.clipboard.writeText(url)
+    setShowCopiedMessage(true)
+    setTimeout(() => setShowCopiedMessage(false), 2000)
+  }
+
   const tabs = [
     { id: 'business', name: 'Business Info', icon: Building },
     { id: 'notifications', name: 'Notifications', icon: Bell },
@@ -243,6 +255,48 @@ export default function SettingsPage() {
           <p className="mt-1 text-sm text-gray-500">
             Manage your business settings and preferences
           </p>
+        </div>
+
+        {/* Booking URL Card */}
+        <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-100">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">Your Booking Page</h3>
+                <p className="mt-1 text-sm text-gray-500">Share this link with your clients to let them book appointments</p>
+              </div>
+              <Link
+                href={`/book/${user?.businessSlug}`}
+                target="_blank"
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Link>
+            </div>
+            <div className="mt-4 flex items-center space-x-2">
+              <div className="flex-1 flex items-center px-3 py-2 bg-white rounded-md border border-gray-300">
+                <Globe className="h-4 w-4 text-gray-400 mr-2" />
+                <span className="text-gray-600">{window.location.origin}/book/{user?.businessSlug}</span>
+              </div>
+              <button
+                onClick={copyBookingUrl}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {showCopiedMessage ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Clipboard className="h-4 w-4 mr-2" />
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Save Status */}
