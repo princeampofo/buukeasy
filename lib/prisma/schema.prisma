@@ -71,6 +71,7 @@ model EntrepreneurProfile {
   id              String          @id @default(cuid())
   userId          String          @unique
   businessName    String
+  slug            String          @unique // Now required since all records have slugs
   description     String?
   address         String?
   city            String?

@@ -19,19 +19,38 @@ const signupSchema = z.object({
     .regex(/\d/, 'Password must contain at least one number'),
 })
 
-function generateBusinessSlug(businessName: string): string {
-  return businessName
+async function generateUniqueSlug(businessName: string): Promise<string> {
+  // Generate base slug
+  let baseSlug = businessName
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 50)
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+    .substring(0, 50) // Limit length
+
+  let slug = baseSlug
+  let counter = 1
+
+  // Keep trying until we find a unique slug
+  while (true) {
+    // Check if slug exists
+    const existing = await prisma.entrepreneurProfile.findUnique({
+      where: { slug }
+    })
+
+    if (!existing) {
+      return slug
+    }
+
+    // If exists, append counter and try again
+    slug = `${baseSlug}-${counter}`
+    counter++
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Validate input
     const validatedData = signupSchema.parse(body)
     const { firstName, lastName, email, businessName, password } = validatedData
 
@@ -39,13 +58,16 @@ export async function POST(request: NextRequest) {
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() }
     })
-    
+
     if (existingUser) {
       return NextResponse.json(
         { message: 'An account with this email already exists' },
         { status: 409 }
       )
     }
+
+    // Generate unique slug
+    const slug = await generateUniqueSlug(businessName)
 
     // Hash password
     const saltRounds = 10
@@ -69,6 +91,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           businessName,
+          slug,
           address: 'PENDING_SETUP',
           city: 'PENDING_SETUP',
           state: 'PENDING_SETUP',
@@ -107,8 +130,9 @@ export async function POST(request: NextRequest) {
         email: result.user.email,
         role: result.user.role,
         businessName: result.profile.businessName,
+        businessSlug: result.profile.slug, // Use the new slug field
       },
-      process.env.JWT_SECRET || 'your-secret-key-change-this-in-production',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
 
@@ -120,9 +144,9 @@ export async function POST(request: NextRequest) {
       role: result.user.role,
       isVerified: result.user.isVerified,
       businessName: result.profile.businessName,
-      businessSlug: result.profile.id,
+      businessSlug: result.profile.slug, // Use the new slug field
       isActive: result.profile.isActive,
-      needsSetup: true, // Add this flag to indicate setup is needed
+      needsSetup: true,
     }
 
     // Set HTTP-only cookie with the token
@@ -158,7 +182,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: 'Failed to create account' },
       { status: 500 }
     )
   }
