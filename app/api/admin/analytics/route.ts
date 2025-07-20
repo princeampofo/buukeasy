@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
 // Helper function to calculate progress width
 const calculateProgressWidth = (value: number, maxValue: number): string => {
-  return `${Math.round((value / maxValue) * 100)}%`
+  if (maxValue === 0) return '0%'
+  return `${(value / maxValue * 100).toFixed(1)}%`
 }
 
 // Helper function to format currency
 const formatCurrency = (amount: number): string => {
-  return amount === 0 ? 'Free' : `$${amount.toLocaleString()}`
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(amount)
 }
 
 // Helper function to calculate percentage change
@@ -29,10 +34,36 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const period = parseInt(searchParams.get('period') || '30')
 
+    // Get the authenticated user
+    const user = await getUserFromRequest(request as any)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: user.userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+
     // Calculate date ranges
     const endDate = new Date()
     const startDate = new Date(endDate.getTime() - period * 24 * 60 * 60 * 1000)
     const previousStartDate = new Date(startDate.getTime() - period * 24 * 60 * 60 * 1000)
+
+    // Base where clause for all queries
+    const baseWhereClause = {
+      providerId: entrepreneurProfile.id
+    }
 
     // Fetch current period data
     const [
@@ -46,6 +77,7 @@ export async function GET(request: Request) {
       // Total revenue
       prisma.payment.aggregate({
         where: {
+          booking: baseWhereClause,
           createdAt: { gte: startDate, lte: endDate },
           status: 'PAID'
         },
@@ -55,6 +87,7 @@ export async function GET(request: Request) {
       // Total appointments
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           createdAt: { gte: startDate, lte: endDate }
         }
       }),
@@ -62,6 +95,7 @@ export async function GET(request: Request) {
       // New clients (unique customers)
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           createdAt: { gte: startDate, lte: endDate }
         },
         distinct: ['customerEmail']
@@ -70,7 +104,10 @@ export async function GET(request: Request) {
       // Average ratings
       prisma.review.aggregate({
         where: {
-          createdAt: { gte: startDate, lte: endDate }
+          booking: {
+            ...baseWhereClause,
+            createdAt: { gte: startDate, lte: endDate }
+          }
         },
         _avg: { rating: true }
       }),
@@ -78,6 +115,7 @@ export async function GET(request: Request) {
       // No-shows
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           appointmentDate: { gte: startDate, lte: endDate },
           status: 'NO_SHOW'
         }
@@ -86,13 +124,14 @@ export async function GET(request: Request) {
       // Total bookings for rate calculation
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           appointmentDate: { gte: startDate, lte: endDate },
           status: { in: ['CONFIRMED', 'COMPLETED'] }
         }
       })
     ])
 
-    // Fetch previous period data
+    // Fetch previous period data with the same base where clause
     const [
       previousRevenue,
       previousAppointments,
@@ -103,6 +142,7 @@ export async function GET(request: Request) {
     ] = await prisma.$transaction([
       prisma.payment.aggregate({
         where: {
+          booking: baseWhereClause,
           createdAt: { gte: previousStartDate, lte: startDate },
           status: 'PAID'
         },
@@ -111,12 +151,14 @@ export async function GET(request: Request) {
 
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           createdAt: { gte: previousStartDate, lte: startDate }
         }
       }),
 
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           createdAt: { gte: previousStartDate, lte: startDate }
         },
         distinct: ['customerEmail']
@@ -124,13 +166,17 @@ export async function GET(request: Request) {
 
       prisma.review.aggregate({
         where: {
-          createdAt: { gte: previousStartDate, lte: startDate }
+          booking: {
+            ...baseWhereClause,
+            createdAt: { gte: previousStartDate, lte: startDate }
+          }
         },
         _avg: { rating: true }
       }),
 
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           appointmentDate: { gte: previousStartDate, lte: startDate },
           status: 'NO_SHOW'
         }
@@ -138,6 +184,7 @@ export async function GET(request: Request) {
 
       prisma.booking.count({
         where: {
+          ...baseWhereClause,
           appointmentDate: { gte: previousStartDate, lte: startDate },
           status: { in: ['CONFIRMED', 'COMPLETED'] }
         }
@@ -164,6 +211,7 @@ export async function GET(request: Request) {
 
         return prisma.booking.findMany({
           where: {
+            ...baseWhereClause,
             appointmentDate: {
               gte: monthStart,
               lte: monthEnd
@@ -179,17 +227,28 @@ export async function GET(request: Request) {
     const monthlyRevenueData = monthlyData.map((bookings, index) => {
       const monthEnd = new Date()
       monthEnd.setMonth(monthEnd.getMonth() - index)
+      const revenue = bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0)
       return {
         month: monthEnd.toLocaleString('default', { month: 'short' }),
-        revenue: bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0),
-        appointments: bookings.length
+        revenue,
+        appointments: bookings.length,
+        formattedRevenue: formatCurrency(revenue),
+        progressWidth: calculateProgressWidth(revenue, Math.max(...monthlyData.map(m => 
+          m.reduce((sum, b) => sum + (b.payment?.amount || 0), 0)
+        )))
       }
     }).reverse()
 
-    // Top services data
+    // Top services
     const topServices = await prisma.service.findMany({
+      where: {
+        entrepreneurId: entrepreneurProfile.id
+      },
       include: {
         bookings: {
+          where: {
+            appointmentDate: { gte: startDate, lte: endDate }
+          },
           include: {
             payment: true
           }
@@ -203,128 +262,128 @@ export async function GET(request: Request) {
       take: 5
     })
 
-    const topServicesData = topServices.map(service => ({
-      name: service.name,
-      bookings: service.bookings.length,
-      revenue: service.bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0),
-      percentage: (service.bookings.length / currentAppointments) * 100
-    }))
+    const totalBookings = currentAppointments || 1 // Avoid division by zero
+    const topServicesData = topServices.map((service, index) => {
+      const revenue = service.bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0)
+      return {
+        name: service.name,
+        bookings: service.bookings.length,
+        revenue,
+        formattedRevenue: formatCurrency(revenue),
+        percentage: (service.bookings.length / totalBookings * 100).toFixed(1),
+        rank: index + 1
+      }
+    })
 
-    // Time distribution data
+    // Time distribution
     const timeDistribution = await prisma.booking.groupBy({
       by: ['appointmentTime'],
+      where: {
+        ...baseWhereClause,
+        appointmentDate: { gte: startDate, lte: endDate }
+      },
       _count: true,
       orderBy: {
         appointmentTime: 'asc'
       }
     })
 
+    const maxBookings = Math.max(...timeDistribution.map(slot => slot._count))
     const timeDistributionData = timeDistribution.map(slot => ({
       hour: new Date(`2000-01-01T${slot.appointmentTime}`).toLocaleTimeString('en-US', {
         hour: 'numeric',
         hour12: true
       }),
-      bookings: slot._count
+      bookings: slot._count,
+      progressWidth: calculateProgressWidth(slot._count, maxBookings)
     }))
 
     // Client distribution
-    const returningClients = await prisma.booking.groupBy({
-      by: ['customerEmail'],
-      _count: true,
-      having: {
-        _count: {
-          gt: 1
-        }
-      }
-    })
-
-    const clientDistributionData = [
+    const clientDistribution = [
       {
         type: 'New Clients',
         count: currentNewClients,
-        percentage: (currentNewClients / currentAppointments) * 100
+        percentage: ((currentNewClients / totalBookings) * 100).toFixed(1),
+        progressWidth: calculateProgressWidth(currentNewClients, totalBookings),
+        color: 'bg-blue-500'
       },
       {
         type: 'Returning Clients',
-        count: returningClients.length,
-        percentage: (returningClients.length / currentAppointments) * 100
+        count: totalBookings - currentNewClients,
+        percentage: (((totalBookings - currentNewClients) / totalBookings) * 100).toFixed(1),
+        progressWidth: calculateProgressWidth(totalBookings - currentNewClients, totalBookings),
+        color: 'bg-green-500'
       }
     ]
 
-    // Build response with real data
-    const analytics = {
-      overview: [
-        {
-          name: 'Total Revenue',
-          value: formatCurrency(currentRevenue._sum.amount || 0),
-          ...calculateChange(currentRevenue._sum.amount || 0, previousRevenue._sum.amount || 0),
-          icon: 'DollarSign',
-          period: 'vs last period'
-        },
-        {
-          name: 'Total Appointments',
-          value: currentAppointments.toString(),
-          ...calculateChange(currentAppointments, previousAppointments),
-          icon: 'Calendar',
-          period: 'vs last period'
-        },
-        {
-          name: 'New Clients',
-          value: currentNewClients.toString(),
-          ...calculateChange(currentNewClients, previousNewClients),
-          icon: 'Users',
-          period: 'vs last period'
-        },
-        {
-          name: 'Avg. Rating',
-          value: (currentRatings._avg.rating || 0).toFixed(1),
-          ...calculateChange(currentRatings._avg.rating || 0, previousRatings._avg.rating || 0),
-          icon: 'Star',
-          period: 'vs last period'
-        },
-        {
-          name: 'No-show Rate',
-          value: `${currentNoShowRate.toFixed(1)}%`,
-          ...calculateChange(previousNoShowRate, currentNoShowRate),
-          icon: 'Clock',
-          period: 'vs last period'
-        },
-        {
-          name: 'Booking Rate',
-          value: `${currentBookingRateValue.toFixed(1)}%`,
-          ...calculateChange(currentBookingRateValue, previousBookingRateValue),
-          icon: 'TrendingUp',
-          period: 'vs last period'
-        }
-      ],
-      monthlyRevenue: monthlyRevenueData.map(item => ({
-        ...item,
-        formattedRevenue: formatCurrency(item.revenue),
-        progressWidth: calculateProgressWidth(item.revenue, Math.max(...monthlyRevenueData.map(m => m.revenue)))
-      })),
-      topServices: topServicesData.map((service, index) => ({
-        ...service,
-        formattedRevenue: formatCurrency(service.revenue),
-        rank: index + 1
-      })),
-      clientDistribution: clientDistributionData.map(item => ({
-        ...item,
-        progressWidth: `${item.percentage}%`,
-        color: item.type === 'New Clients' ? 'bg-green-500' : 'bg-blue-500'
-      })),
-      timeDistribution: timeDistributionData.map(slot => ({
-        ...slot,
-        progressWidth: calculateProgressWidth(slot.bookings, Math.max(...timeDistributionData.map(t => t.bookings)))
-      })),
-      insights: {
-        peakHours: timeDistributionData.reduce((a, b) => a.bookings > b.bookings ? a : b).hour,
-        topService: topServicesData[0]?.name || 'No services yet',
-        growthRate: calculateChange(currentRevenue._sum.amount || 0, previousRevenue._sum.amount || 0).change,
-        totalClients: currentNewClients + returningClients.length
-      }
+    // Insights
+    const insights = {
+      peakHours: timeDistributionData.reduce((peak, current) => 
+        current.bookings > peak.bookings ? current : peak
+      ).hour,
+      topService: topServicesData[0]?.name || 'N/A',
+      growthRate: calculateChange(
+        currentRevenue._sum?.amount || 0,
+        previousRevenue._sum?.amount || 0
+      ).change,
+      totalClients: currentNewClients
     }
 
-    return NextResponse.json(analytics)
+    // Format overview stats
+    const overview = [
+      {
+        name: 'Total Revenue',
+        value: formatCurrency(currentRevenue._sum?.amount || 0),
+        ...calculateChange(currentRevenue._sum?.amount || 0, previousRevenue._sum?.amount || 0),
+        icon: 'DollarSign',
+        period: `Last ${period} days`
+      },
+      {
+        name: 'Total Appointments',
+        value: currentAppointments.toString(),
+        ...calculateChange(currentAppointments, previousAppointments),
+        icon: 'Calendar',
+        period: `Last ${period} days`
+      },
+      {
+        name: 'New Clients',
+        value: currentNewClients.toString(),
+        ...calculateChange(currentNewClients, previousNewClients),
+        icon: 'Users',
+        period: `Last ${period} days`
+      },
+      {
+        name: 'Average Rating',
+        value: (currentRatings._avg?.rating || 0).toFixed(1),
+        ...calculateChange(currentRatings._avg?.rating || 0, previousRatings._avg?.rating || 0),
+        icon: 'Star',
+        period: `Last ${period} days`
+      },
+      {
+        name: 'No-Show Rate',
+        value: `${currentNoShowRate.toFixed(1)}%`,
+        ...calculateChange(previousNoShowRate, currentNoShowRate), // Reversed for better context
+        icon: 'Clock',
+        period: `Last ${period} days`
+      },
+      {
+        name: 'Booking Rate',
+        value: `${currentBookingRateValue.toFixed(1)}%`,
+        ...calculateChange(currentBookingRateValue, previousBookingRateValue),
+        icon: 'TrendingUp',
+        period: `Last ${period} days`
+      }
+    ]
+
+    return NextResponse.json({
+      overview,
+      monthlyRevenue: monthlyRevenueData,
+      topServices: topServicesData,
+      clientDistribution,
+      timeDistribution: timeDistributionData,
+      insights
+    })
+
   } catch (error) {
     console.error('Analytics API Error:', error)
     return NextResponse.json(

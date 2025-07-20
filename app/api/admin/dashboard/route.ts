@@ -131,8 +131,8 @@ export async function GET() {
     ])
 
     // Calculate unique clients
-    const currentNewClients = new Set(currentNewClientsResult.map(b => b.customerEmail)).size
-    const previousNewClients = new Set(previousNewClientsResult.map(b => b.customerEmail)).size
+    const currentNewClients = new Set(currentNewClientsResult.map((b: { customerEmail: any }) => b.customerEmail)).size
+    const previousNewClients = new Set(previousNewClientsResult.map((b: { customerEmail: any }) => b.customerEmail)).size
 
     const stats = [
       {

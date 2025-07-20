@@ -1,31 +1,41 @@
 import { NextResponse, NextRequest } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const entrepreneurId = searchParams.get('entrepreneurId')
     const status = searchParams.get('status')
     const date = searchParams.get('date')
     const search = searchParams.get('search')
 
-    if (!entrepreneurId) {
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Entrepreneur ID required' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: user.userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
       )
     }
 
     const whereClause: any = {
-      provider: {
-        entrepreneurProfile: {
-          id: entrepreneurId
-        }
-      }
+      providerId: entrepreneurProfile.id
     }
 
     // Apply filters
-    if (status && status !== 'All Status') {
+    if (status && status !== 'all') {
       whereClause.status = status.toUpperCase()
     }
 
@@ -42,40 +52,26 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       whereClause.OR = [
-        {
-          customer: {
-            name: {
-              contains: search,
-              mode: 'insensitive'
-            }
-          }
-        },
-        {
-          service: {
-            name: {
-              contains: search,
-              mode: 'insensitive'
-            }
-          }
-        }
+        { customerName: { contains: search, mode: 'insensitive' } },
+        { customerEmail: { contains: search, mode: 'insensitive' } },
+        { customerPhone: { contains: search, mode: 'insensitive' } }
       ]
     }
 
     const appointments = await prisma.booking.findMany({
       where: whereClause,
       include: {
-        customer: {
-          select: {
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
         service: {
           select: {
             name: true,
             duration: true,
             price: true
+          }
+        },
+        payment: {
+          select: {
+            amount: true,
+            status: true
           }
         }
       },
@@ -84,21 +80,26 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const transformedAppointments = appointments.map((appointment: { id: any; customer: { name: any; email: any; phone: any }; service: { name: any; duration: any; price: any }; appointmentDate: { toISOString: () => string }; appointmentTime: any; status: string; specialRequests: any; modificationNote: any }) => ({
+    const transformedAppointments = appointments.map((appointment: { id: any; customerName: any; customerEmail: any; customerPhone: any; service: { name: any; duration: any; price: string | number | bigint }; appointmentDate: string | number | Date; appointmentTime: any; status: string; specialRequests: any }) => ({
       id: appointment.id,
-      customerName: appointment.customer.name,
-      customerEmail: appointment.customer.email,
-      customerPhone: appointment.customer.phone || '',
-      serviceName: appointment.service.name,
-      appointmentDate: appointment.appointmentDate.toISOString().split('T')[0],
-      appointmentTime: appointment.appointmentTime,
+      clientName: appointment.customerName,
+      clientEmail: appointment.customerEmail,
+      clientPhone: appointment.customerPhone || '',
+      service: appointment.service.name,
+      date: appointment.appointmentDate.toString().split('T')[0],
+      time: appointment.appointmentTime,
       duration: appointment.service.duration,
       price: appointment.service.price,
       status: appointment.status.toLowerCase(),
-      notes: appointment.specialRequests || appointment.modificationNote || ''
+      notes: appointment.specialRequests || '',
+      formattedDate: new Date(appointment.appointmentDate).toLocaleDateString(),
+      formattedPrice: new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(typeof appointment.service.price === 'string' ? parseFloat(appointment.service.price) : Number(appointment.service.price))
     }))
 
-    return NextResponse.json({ success: true, data: transformedAppointments })
+    return NextResponse.json({ success: true, appointments: transformedAppointments })
   } catch (error) {
     console.error('Appointments fetch error:', error)
     return NextResponse.json(

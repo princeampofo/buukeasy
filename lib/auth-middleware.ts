@@ -1,4 +1,3 @@
-// src/lib/auth-middleware.ts
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 
@@ -71,4 +70,4 @@ export async function getUserFromRequest(request: NextRequest) {
   } catch (error) {
     return null
   }
-}
+} 
