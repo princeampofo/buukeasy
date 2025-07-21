@@ -69,19 +69,23 @@ export async function GET(request: Request) {
     const [
       currentRevenue,
       currentAppointments,
-      currentNewClients,
+      currentNewClientsData,
       currentRatings,
       currentNoShows,
       currentBookingRate
     ] = await prisma.$transaction([
       // Total revenue
-      prisma.payment.aggregate({
-        where: {
-          booking: baseWhereClause,
-          createdAt: { gte: startDate, lte: endDate },
-          status: 'PAID'
+      prisma.booking.aggregate({
+        _sum: {
+          totalAmount: true
         },
-        _sum: { amount: true }
+        where: {
+          ...baseWhereClause,
+          createdAt: { gte: startDate, lte: endDate },
+          payment: {
+            status: 'PAID'
+          }
+        }
       }),
 
       // Total appointments
@@ -92,24 +96,26 @@ export async function GET(request: Request) {
         }
       }),
 
-      // New clients (unique customers)
-      prisma.booking.count({
+      // New clients - using groupBy for distinct count
+      prisma.booking.groupBy({
+        by: ['customerEmail'],
         where: {
           ...baseWhereClause,
           createdAt: { gte: startDate, lte: endDate }
-        },
-        distinct: ['customerEmail']
+        }
       }),
 
       // Average ratings
       prisma.review.aggregate({
+        _avg: {
+          rating: true
+        },
         where: {
           booking: {
             ...baseWhereClause,
             createdAt: { gte: startDate, lte: endDate }
           }
-        },
-        _avg: { rating: true }
+        }
       }),
 
       // No-shows
@@ -131,22 +137,29 @@ export async function GET(request: Request) {
       })
     ])
 
+    // Extract unique client count from groupBy result
+    const currentNewClients = currentNewClientsData.length
+
     // Fetch previous period data with the same base where clause
     const [
       previousRevenue,
       previousAppointments,
-      previousNewClients,
+      previousNewClientsData,
       previousRatings,
       previousNoShows,
       previousBookingRate
     ] = await prisma.$transaction([
-      prisma.payment.aggregate({
-        where: {
-          booking: baseWhereClause,
-          createdAt: { gte: previousStartDate, lte: startDate },
-          status: 'PAID'
+      prisma.booking.aggregate({
+        _sum: {
+          totalAmount: true
         },
-        _sum: { amount: true }
+        where: {
+          ...baseWhereClause,
+          createdAt: { gte: previousStartDate, lte: startDate },
+          payment: {
+            status: 'PAID'
+          }
+        }
       }),
 
       prisma.booking.count({
@@ -156,22 +169,25 @@ export async function GET(request: Request) {
         }
       }),
 
-      prisma.booking.count({
+      // New clients - using groupBy for distinct count
+      prisma.booking.groupBy({
+        by: ['customerEmail'],
         where: {
           ...baseWhereClause,
           createdAt: { gte: previousStartDate, lte: startDate }
-        },
-        distinct: ['customerEmail']
+        }
       }),
 
       prisma.review.aggregate({
+        _avg: {
+          rating: true
+        },
         where: {
           booking: {
             ...baseWhereClause,
             createdAt: { gte: previousStartDate, lte: startDate }
           }
-        },
-        _avg: { rating: true }
+        }
       }),
 
       prisma.booking.count({
@@ -191,11 +207,18 @@ export async function GET(request: Request) {
       })
     ])
 
-    // Calculate rates and changes
-    const currentNoShowRate = (currentNoShows / currentAppointments) * 100
-    const previousNoShowRate = (previousNoShows / previousAppointments) * 100
-    const currentBookingRateValue = (currentBookingRate / (currentBookingRate + currentNoShows)) * 100
-    const previousBookingRateValue = (previousBookingRate / (previousBookingRate + previousNoShows)) * 100
+    // Extract unique client count from groupBy result
+    const previousNewClients = previousNewClientsData.length
+
+    // Calculate rates and changes - handle division by zero
+    const currentNoShowRate = currentAppointments > 0 ? (currentNoShows / currentAppointments) * 100 : 0
+    const previousNoShowRate = previousAppointments > 0 ? (previousNoShows / previousAppointments) * 100 : 0
+    const currentBookingRateValue = (currentBookingRate + currentNoShows) > 0 
+      ? (currentBookingRate / (currentBookingRate + currentNoShows)) * 100 
+      : 0
+    const previousBookingRateValue = (previousBookingRate + previousNoShows) > 0 
+      ? (previousBookingRate / (previousBookingRate + previousNoShows)) * 100 
+      : 0
 
     // Monthly revenue data (last 6 months)
     const monthlyData = await prisma.$transaction(
@@ -224,7 +247,7 @@ export async function GET(request: Request) {
       })
     )
 
-    const monthlyRevenueData = monthlyData.map((bookings, index) => {
+    const monthlyRevenueData = monthlyData.map((bookings: any[], index: number) => {
       const monthEnd = new Date()
       monthEnd.setMonth(monthEnd.getMonth() - index)
       const revenue = bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0)
@@ -233,8 +256,8 @@ export async function GET(request: Request) {
         revenue,
         appointments: bookings.length,
         formattedRevenue: formatCurrency(revenue),
-        progressWidth: calculateProgressWidth(revenue, Math.max(...monthlyData.map(m => 
-          m.reduce((sum, b) => sum + (b.payment?.amount || 0), 0)
+        progressWidth: calculateProgressWidth(revenue, Math.max(...monthlyData.map((m: any[]) => 
+          m.reduce((sum: any, b: { payment: { amount: any } }) => sum + (b.payment?.amount || 0), 0)
         )))
       }
     }).reverse()
@@ -263,7 +286,7 @@ export async function GET(request: Request) {
     })
 
     const totalBookings = currentAppointments || 1 // Avoid division by zero
-    const topServicesData = topServices.map((service, index) => {
+    const topServicesData = topServices.map((service: { bookings: any[]; name: any }, index: number) => {
       const revenue = service.bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0)
       return {
         name: service.name,
@@ -288,8 +311,8 @@ export async function GET(request: Request) {
       }
     })
 
-    const maxBookings = Math.max(...timeDistribution.map(slot => slot._count))
-    const timeDistributionData = timeDistribution.map(slot => ({
+    const maxBookings = Math.max(...timeDistribution.map((slot: { _count: any }) => slot._count))
+    const timeDistributionData = timeDistribution.map((slot: { appointmentTime: any; _count: number }) => ({
       hour: new Date(`2000-01-01T${slot.appointmentTime}`).toLocaleTimeString('en-US', {
         hour: 'numeric',
         hour12: true
@@ -316,15 +339,17 @@ export async function GET(request: Request) {
       }
     ]
 
-    // Insights
+    // Insights - handle empty data cases
     const insights = {
-      peakHours: timeDistributionData.reduce((peak, current) => 
-        current.bookings > peak.bookings ? current : peak
-      ).hour,
+      peakHours: timeDistributionData.length > 0 
+        ? timeDistributionData.reduce((peak: { bookings: number }, current: { bookings: number }) => 
+            current.bookings > peak.bookings ? current : peak
+          ).hour
+        : 'N/A',
       topService: topServicesData[0]?.name || 'N/A',
       growthRate: calculateChange(
-        currentRevenue._sum?.amount || 0,
-        previousRevenue._sum?.amount || 0
+        currentRevenue._sum?.totalAmount || 0,
+        previousRevenue._sum?.totalAmount || 0
       ).change,
       totalClients: currentNewClients
     }
@@ -333,8 +358,8 @@ export async function GET(request: Request) {
     const overview = [
       {
         name: 'Total Revenue',
-        value: formatCurrency(currentRevenue._sum?.amount || 0),
-        ...calculateChange(currentRevenue._sum?.amount || 0, previousRevenue._sum?.amount || 0),
+        value: formatCurrency(currentRevenue._sum?.totalAmount || 0),
+        ...calculateChange(currentRevenue._sum?.totalAmount || 0, previousRevenue._sum?.totalAmount || 0),
         icon: 'DollarSign',
         period: `Last ${period} days`
       },
