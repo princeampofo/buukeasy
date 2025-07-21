@@ -48,7 +48,7 @@ export default function AppointmentsPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
-  const [selectedDate, setSelectedDate] = useState('')
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]) // default to today
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [openDropdown, setOpenDropdown] = useState<number | null>(null)

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # data
 /data
+
+# prisma
+lib/prisma/migrations/20250719223227_buukme_schema/
