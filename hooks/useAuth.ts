@@ -9,10 +9,11 @@ interface User {
   email: string
   firstName: string
   lastName: string
-  businessName: string
-  businessSlug: string
+  role: string
+  isVerified: boolean
+  businessName: string | null
+  businessSlug: string | null
   isActive: boolean
-  trialEndsAt: string
   createdAt: string
   updatedAt: string
 }

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import prisma from '@/lib/db'
-import type { SignupData, User, EntrepreneurProfile } from '@/types/auth'
+import type { SignupData } from '@/types/auth'
 import { PrismaClient } from '@prisma/client'
 
 const signupSchema = z.object({
@@ -86,17 +86,13 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Create entrepreneur profile with placeholder values
+      // Create entrepreneur profile
       const profile = await tx.entrepreneurProfile.create({
         data: {
           userId: user.id,
           businessName,
           slug,
-          address: 'PENDING_SETUP',
-          city: 'PENDING_SETUP',
-          state: 'PENDING_SETUP',
-          zipCode: 'PENDING_SETUP',
-          isActive: false, // Set to false until business setup is complete
+          isActive: true,
           isVerified: false,
           timezone: 'Eastern Time',
           currency: 'USD',
@@ -108,7 +104,7 @@ export async function POST(request: NextRequest) {
       // Create default notification settings
       await tx.notificationSettings.create({
         data: {
-          userId: user.id,
+          entrepreneurId: profile.id,
           emailBookings: true,
           emailCancellations: true,
           emailReminders: true,
@@ -129,24 +125,27 @@ export async function POST(request: NextRequest) {
         userId: result.user.id,
         email: result.user.email,
         role: result.user.role,
-        businessName: result.profile.businessName,
-        businessSlug: result.profile.slug, // Use the new slug field
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'your-secret-key-change-this-in-production',
       { expiresIn: '7d' }
     )
 
-    // Create response with user data
+    // Split name into first and last name
+    const [firstName = '', lastName = ''] = result.user.name.split(' ', 2)
+
+    // Create standardized user data
     const userData = {
       id: result.user.id,
       email: result.user.email,
-      name: result.user.name,
+      firstName,
+      lastName,
       role: result.user.role,
       isVerified: result.user.isVerified,
       businessName: result.profile.businessName,
-      businessSlug: result.profile.slug, // Use the new slug field
+      businessSlug: result.profile.slug,
       isActive: result.profile.isActive,
-      needsSetup: true,
+      createdAt: result.user.createdAt.toISOString(),
+      updatedAt: result.user.updatedAt.toISOString()
     }
 
     // Set HTTP-only cookie with the token

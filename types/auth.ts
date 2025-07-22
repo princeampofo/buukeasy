@@ -12,10 +12,10 @@ export interface EntrepreneurProfile {
   userId: string
   businessName: string
   description?: string
-  address: string
-  city: string
-  state: string
-  zipCode: string
+  address?: string
+  city?: string
+  state?: string
+  zipCode?: string
   website?: string
   timezone: string
   currency: string
@@ -27,17 +27,20 @@ export interface EntrepreneurProfile {
   totalReviews: number
   bankAccount?: string
   taxId?: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
 }
 
 export interface User {
   id: string
   email: string
-  name: string
-  role: 'ENTREPRENEUR' | 'ADMIN'
+  firstName: string
+  lastName: string
+  role: string
   isVerified: boolean
-  createdAt: Date
-  updatedAt: Date
-  entrepreneurProfile?: EntrepreneurProfile
+  businessName: string | null
+  businessSlug: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
 }

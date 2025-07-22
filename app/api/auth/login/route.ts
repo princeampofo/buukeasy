@@ -50,30 +50,33 @@ export async function POST(request: NextRequest) {
       ? 60 * 60 * 24 * 7  // 7 days in seconds
       : 60 * 60 * 24 // 1 day in seconds
 
+    // Split name into first and last name
+    const [firstName = '', lastName = ''] = user.name.split(' ', 2)
+
     // Generate JWT token
     const token = jwt.sign(
       { 
         userId: user.id,
         email: user.email,
         role: user.role,
-        businessName: user.entrepreneurProfile?.businessName,
       },
       process.env.JWT_SECRET || 'your-secret-key-change-this-in-production',
       { expiresIn: tokenExpiry }
     )
 
-    // Create response with user data (excluding password)
+    // Create standardized user data
     const userData = {
       id: user.id,
       email: user.email,
-      name: user.name,
+      firstName,
+      lastName,
       role: user.role,
       isVerified: user.isVerified,
-      ...(user.entrepreneurProfile && {
-        businessName: user.entrepreneurProfile.businessName,
-        businessSlug: user.entrepreneurProfile.id,
-        isActive: user.entrepreneurProfile.isActive,
-      }),
+      businessName: user.entrepreneurProfile?.businessName || null,
+      businessSlug: user.entrepreneurProfile?.slug || null,
+      isActive: user.entrepreneurProfile?.isActive || false,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString()
     }
 
     // Set HTTP-only cookie with appropriate expiration

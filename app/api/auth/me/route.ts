@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
       where: { id: decoded.userId },
       include: {
         entrepreneurProfile: true,
-        notificationSettings: true,
       },
     })
 
@@ -37,21 +36,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Return user data (excluding password)
+    // Split name into first and last name
+    const [firstName = '', lastName = ''] = user.name.split(' ', 2)
+
+    // Return standardized user data
     const userData = {
       id: user.id,
       email: user.email,
-      name: user.name,
+      firstName,
+      lastName,
       role: user.role,
       isVerified: user.isVerified,
-      ...(user.entrepreneurProfile && {
-        businessName: user.entrepreneurProfile.businessName,
-        businessSlug: user.entrepreneurProfile.id,
-        isActive: user.entrepreneurProfile.isActive,
-      }),
-      notificationSettings: user.notificationSettings,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      businessName: user.entrepreneurProfile?.businessName || null,
+      businessSlug: user.entrepreneurProfile?.slug || null,
+      isActive: user.entrepreneurProfile?.isActive || false,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString()
     }
 
     return NextResponse.json({
