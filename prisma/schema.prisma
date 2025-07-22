@@ -61,7 +61,6 @@ model User {
   
   // Settings relations
   notificationSettings NotificationSettings?
-  subscriptions        Subscription[]
 
   @@map("users")
 }
@@ -71,23 +70,18 @@ model EntrepreneurProfile {
   id              String          @id @default(cuid())
   userId          String          @unique
   businessName    String
-  slug            String          @unique // Now required since all records have slugs
+  slug            String          @unique
   description     String?
   address         String?
   city            String?
   state           String?
   zipCode         String?
-  website         String?
   timezone        String          @default("Eastern Time")
   currency        String          @default("USD")
-  latitude        Float?
-  longitude       Float?
   isActive        Boolean         @default(true)
   isVerified      Boolean         @default(false)
   averageRating   Float           @default(0)
   totalReviews    Int             @default(0)
-  bankAccount     String?
-  taxId           String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -103,23 +97,23 @@ model EntrepreneurProfile {
 model Service {
   id                   String          @id @default(cuid())
   entrepreneurId       String
-  name                 String
-  category             ServiceCategory
-  description          String?
-  duration             Int
-  price                Float
-  bufferTime           Int             @default(0)
-  requireDeposit       Boolean         @default(false)
-  minAdvanceHours      Int             @default(1)
-  maxAdvanceDays       Int             @default(30)
-  specialInstructions  String?
-  imageUrl             String?
-  isActive             Boolean         @default(true)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  name                String
+  category            ServiceCategory
+  description         String?
+  duration            Int
+  price               Float
+  bufferTime          Int             @default(0)
+  requireDeposit      Boolean         @default(false)
+  minAdvanceHours     Int             @default(1)
+  maxAdvanceDays      Int             @default(30)
+  specialInstructions String?
+  imageUrl            String?
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  entrepreneur         EntrepreneurProfile @relation(fields: [entrepreneurId], references: [id], onDelete: Cascade)
-  bookings             Booking[]
+  entrepreneur        EntrepreneurProfile @relation(fields: [entrepreneurId], references: [id], onDelete: Cascade)
+  bookings            Booking[]
 
   @@map("services")
 }
@@ -166,7 +160,6 @@ model Booking {
   provider         User          @relation("ProviderBookings", fields: [providerId], references: [id])
   service          Service       @relation(fields: [serviceId], references: [id])
   payment          Payment?
-  review           Review?
 
   @@map("bookings")
 }
@@ -197,30 +190,11 @@ model PortfolioImage {
   entrepreneurId   String
   imageUrl         String
   caption          String?
-  order            Int      @default(0)
   createdAt        DateTime @default(now())
 
   entrepreneur     EntrepreneurProfile @relation(fields: [entrepreneurId], references: [id], onDelete: Cascade)
 
   @@map("portfolio_images")
-}
-
-// Reviews - Modified for customer details without account
-model Review {
-  id            String   @id @default(cuid())
-  bookingId     String   @unique
-  customerName  String
-  customerEmail String
-  rating        Int
-  comment       String?
-  response      String?
-  respondedAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  booking       Booking  @relation(fields: [bookingId], references: [id])
-
-  @@map("reviews")
 }
 
 // Platform settings
@@ -235,50 +209,6 @@ model PlatformSettings {
   updatedAt             DateTime @updatedAt
 
   @@map("platform_settings")
-}
-
-// Subscription plans
-model SubscriptionPlan {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  currency    String   @default("USD")
-  interval    String   @default("month")
-  features    String[]
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  subscriptions Subscription[]
-
-  @@map("subscription_plans")
-}
-
-// Subscriptions
-model Subscription {
-  id                String            @id @default(cuid())
-  userId            String
-  planId            String
-  status            SubscriptionStatus @default(ACTIVE)
-  currentPeriodStart DateTime
-  currentPeriodEnd   DateTime
-  cancelAtPeriodEnd  Boolean          @default(false)
-  canceledAt         DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-
-  user              User              @relation(fields: [userId], references: [id])
-  plan              SubscriptionPlan  @relation(fields: [planId], references: [id])
-
-  @@map("subscriptions")
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELED
-  PAST_DUE
-  UNPAID
 }
 
 // Notification settings
