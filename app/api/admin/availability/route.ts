@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import prisma from '@/lib/db'
 
 // Map of day numbers to day names (0 = Sunday, 1 = Monday, etc.)
 const dayNumberToName = {

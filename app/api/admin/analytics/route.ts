@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import prisma from '@/lib/db'
 import { getUserFromRequest } from '@/lib/auth-middleware'
 
 // Helper function to calculate progress width
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
 
     // Base where clause for all queries
     const baseWhereClause = {
-      providerId: entrepreneurProfile.id
+      providerId: user.userId  // Fixed: Use user.userId instead of entrepreneurProfile.id
     }
 
     // Fetch current period data
@@ -70,7 +70,6 @@ export async function GET(request: Request) {
       currentRevenue,
       currentAppointments,
       currentNewClientsData,
-      currentRatings,
       currentNoShows,
       currentBookingRate
     ] = await prisma.$transaction([
@@ -102,19 +101,9 @@ export async function GET(request: Request) {
         where: {
           ...baseWhereClause,
           createdAt: { gte: startDate, lte: endDate }
-        }
-      }),
-
-      // Average ratings
-      prisma.review.aggregate({
-        _avg: {
-          rating: true
         },
-        where: {
-          booking: {
-            ...baseWhereClause,
-            createdAt: { gte: startDate, lte: endDate }
-          }
+        orderBy: {
+          customerEmail: 'asc'
         }
       }),
 
@@ -145,7 +134,6 @@ export async function GET(request: Request) {
       previousRevenue,
       previousAppointments,
       previousNewClientsData,
-      previousRatings,
       previousNoShows,
       previousBookingRate
     ] = await prisma.$transaction([
@@ -175,18 +163,9 @@ export async function GET(request: Request) {
         where: {
           ...baseWhereClause,
           createdAt: { gte: previousStartDate, lte: startDate }
-        }
-      }),
-
-      prisma.review.aggregate({
-        _avg: {
-          rating: true
         },
-        where: {
-          booking: {
-            ...baseWhereClause,
-            createdAt: { gte: previousStartDate, lte: startDate }
-          }
+        orderBy: {
+          customerEmail: 'asc'
         }
       }),
 
@@ -342,9 +321,10 @@ export async function GET(request: Request) {
     // Insights - handle empty data cases
     const insights = {
       peakHours: timeDistributionData.length > 0 
-        ? timeDistributionData.reduce((peak: { bookings: number }, current: { bookings: number }) => 
-            current.bookings > peak.bookings ? current : peak
-          ).hour
+        ? timeDistributionData.reduce(
+            (peak: { hour: string; bookings: number; progressWidth: string }, current: { hour: string; bookings: number; progressWidth: string }) => 
+              current.bookings > peak.bookings ? current : peak
+          )?.hour
         : 'N/A',
       topService: topServicesData[0]?.name || 'N/A',
       growthRate: calculateChange(
@@ -379,8 +359,9 @@ export async function GET(request: Request) {
       },
       {
         name: 'Average Rating',
-        value: (currentRatings._avg?.rating || 0).toFixed(1),
-        ...calculateChange(currentRatings._avg?.rating || 0, previousRatings._avg?.rating || 0),
+        value: '0.0',  // Removed rating since we removed the Review model
+        change: '+0%',
+        changeType: 'increase',
         icon: 'Star',
         period: `Last ${period} days`
       },

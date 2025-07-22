@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { z } from 'zod'
-import prisma from '@/lib/prisma'
+import prisma from '@/lib/db'
 import type { SignupData, User, EntrepreneurProfile } from '@/types/auth'
 import { PrismaClient } from '@prisma/client'
 
