@@ -1,18 +1,32 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import prisma from '@/lib/db'
 import { calculatePercentageChange } from '@/lib/util'
-import { withAuth, type AuthenticatedRequest } from '@/lib/auth-middleware'
+import { withAuth, type UserData } from '@/lib/auth-middleware'
 
-export const GET = withAuth(async (request: AuthenticatedRequest) => {
+export const GET = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    const userId = request.user?.userId
+    const userId = user.userId
     if (!userId) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       )
     }
+
+    // Get the entrepreneur profile ID
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findUnique({
+      where: { userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+
+    const entrepreneurId = entrepreneurProfile.id
 
     // Get the current date range
     const today = new Date()
@@ -29,11 +43,11 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       currentNewClientsResult,
       currentRevenue,
       currentBookings
-    ] = await prisma.$transaction([
+    ] = await Promise.all([
       // Total appointments
       prisma.booking.count({
         where: {
-          providerId: userId,
+          entrepreneurId: entrepreneurId,
           createdAt: {
             gte: startOfToday,
             lte: endOfToday
@@ -44,7 +58,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       // New clients (unique customers today)
       prisma.booking.findMany({
         where: {
-          providerId: userId,
+          entrepreneurId: entrepreneurId,
           createdAt: {
             gte: startOfToday,
             lte: endOfToday
@@ -58,9 +72,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       // Revenue
       prisma.payment.aggregate({
         where: {
-          booking: {
-            providerId: userId
-          },
+          entrepreneurId: entrepreneurId,
           createdAt: {
             gte: startOfToday,
             lte: endOfToday
@@ -75,7 +87,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       // Total booking slots vs booked slots for booking rate
       prisma.booking.count({
         where: {
-          providerId: userId,
+          entrepreneurId: entrepreneurId,
           appointmentDate: {
             gte: startOfToday,
             lte: endOfToday
@@ -93,11 +105,11 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       previousNewClientsResult,
       previousRevenue,
       previousBookings
-    ] = await prisma.$transaction([
+    ] = await Promise.all([
       // Previous period appointments
       prisma.booking.count({
         where: {
-          providerId: userId,
+          entrepreneurId: entrepreneurId,
           createdAt: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -108,7 +120,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       // Previous period new clients
       prisma.booking.findMany({
         where: {
-          providerId: userId,
+          entrepreneurId: entrepreneurId,
           createdAt: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -122,9 +134,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       // Previous period revenue
       prisma.payment.aggregate({
         where: {
-          booking: {
-            providerId: userId
-          },
+          entrepreneurId: entrepreneurId,
           createdAt: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -139,7 +149,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
       // Previous period booking rate
       prisma.booking.count({
         where: {
-          providerId: userId,
+          entrepreneurId: entrepreneurId,
           appointmentDate: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -195,7 +205,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
     // Fetch today's appointments
     const upcomingAppointments = await prisma.booking.findMany({
       where: {
-        providerId: userId,
+        entrepreneurId: entrepreneurId,
         appointmentDate: {
           gte: startOfToday,
           lte: endOfToday
@@ -212,7 +222,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
     // Fetch recent activity
     const recentActivity = await prisma.booking.findMany({
       where: {
-        providerId: userId,
+        entrepreneurId: entrepreneurId,
         OR: [
           { status: 'CONFIRMED' },
           { status: 'CANCELLED' },
