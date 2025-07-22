@@ -16,6 +16,7 @@ import {
   XCircle,
   AlertCircle
 } from 'lucide-react'
+import { Concert_One } from 'next/font/google'
 
 // Add icon mapping helper:
 const getIconComponent = (iconName: string) => {
@@ -61,6 +62,8 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  // Get user data from auth context
+  const { user } = useAuthContext()
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   // Add state and useEffect in the component:
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
@@ -85,9 +88,6 @@ export default function DashboardPage() {
       setIsLoading(false)
     }
   }
-    
-  // Get user data from auth context
-  const { user } = useAuthContext()
 
   // Get time-based greeting
   const getGreeting = () => {

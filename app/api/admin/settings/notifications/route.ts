@@ -1,38 +1,40 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
-interface NotificationSettings {
-  emailBookings: boolean
-  emailCancellations: boolean
-  emailReminders: boolean
-  smsBookings: boolean
-  smsCancellations: boolean
-  smsReminders: boolean
-  marketingEmails: boolean
-  weeklyReports: boolean
-}
-
-// Temporary in-memory storage - replace with database
-let notificationSettings: NotificationSettings = {
-  emailBookings: false,
-  emailCancellations: false,
-  emailReminders: false,
-  smsBookings: false,
-  smsCancellations: false,
-  smsReminders: false,
-  marketingEmails: false,
-  weeklyReports: false
-}
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // TODO: Replace with actual database query
-    // const settings = await db.notificationSettings.findFirst({
-    //   where: { userId: currentUser.id }
-    // })
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
 
-    return NextResponse.json(notificationSettings)
+    // Get notification settings
+    const settings = await prisma.notificationSettings.findUnique({
+      where: { userId: user.userId }
+    })
+
+    if (!settings) {
+      // Return default settings if none exist
+      return NextResponse.json({
+        emailBookings: true,
+        emailCancellations: true,
+        emailReminders: true,
+        smsBookings: false,
+        smsCancellations: false,
+        smsReminders: false,
+        marketingEmails: true,
+        weeklyReports: true
+      })
+    }
+
+    return NextResponse.json(settings)
   } catch (error) {
-    console.error('Failed to fetch notification settings:', error)
+    console.error('Notification Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch notification settings' },
       { status: 500 }
@@ -40,42 +42,50 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const data: NotificationSettings = await request.json()
-    
-    // Validate that all required fields are boolean
-    const requiredFields = [
-      'emailBookings', 'emailCancellations', 'emailReminders',
-      'smsBookings', 'smsCancellations', 'smsReminders',
-      'marketingEmails', 'weeklyReports'
-    ]
-
-    for (const field of requiredFields) {
-      if (typeof data[field as keyof NotificationSettings] !== 'boolean') {
-        return NextResponse.json(
-          { error: `Invalid value for ${field}. Must be true or false.` },
-          { status: 400 }
-        )
-      }
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
-    // TODO: Replace with actual database update
-    // const updatedSettings = await db.notificationSettings.upsert({
-    //   where: { userId: currentUser.id },
-    //   update: data,
-    //   create: { ...data, userId: currentUser.id }
-    // })
+    const data = await request.json()
 
-    // Update in-memory storage for now
-    notificationSettings = { ...data }
-
-    return NextResponse.json({ 
-      message: 'Notification settings updated successfully',
-      data: notificationSettings 
+    // Update or create notification settings
+    const settings = await prisma.notificationSettings.upsert({
+      where: {
+        userId: user.userId
+      },
+      update: {
+        emailBookings: data.emailBookings,
+        emailCancellations: data.emailCancellations,
+        emailReminders: data.emailReminders,
+        smsBookings: data.smsBookings,
+        smsCancellations: data.smsCancellations,
+        smsReminders: data.smsReminders,
+        marketingEmails: data.marketingEmails,
+        weeklyReports: data.weeklyReports
+      },
+      create: {
+        userId: user.userId,
+        emailBookings: data.emailBookings ?? true,
+        emailCancellations: data.emailCancellations ?? true,
+        emailReminders: data.emailReminders ?? true,
+        smsBookings: data.smsBookings ?? false,
+        smsCancellations: data.smsCancellations ?? false,
+        smsReminders: data.smsReminders ?? false,
+        marketingEmails: data.marketingEmails ?? true,
+        weeklyReports: data.weeklyReports ?? true
+      }
     })
+
+    return NextResponse.json(settings)
   } catch (error) {
-    console.error('Failed to update notification settings:', error)
+    console.error('Update Notification Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to update notification settings' },
       { status: 500 }

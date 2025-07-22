@@ -1,46 +1,49 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
-interface BusinessSettings {
-  businessName: string
-  ownerName: string
-  email: string
-  phone: string
-  address: string
-  city: string
-  state: string
-  zipCode: string
-  website: string
-  description: string
-  timezone: string
-  currency: string
-}
-
-// Temporary in-memory storage - replace with database
-let businessSettings: BusinessSettings = {
-  businessName: 'Demo Business',
-  ownerName: 'Demo Owner',
-  email: 'demo@gmail.com',
-  phone: '+1 (555) 123-4567',
-  address: '123 Demo St',
-  city: 'Demo City',
-  state: 'Demo State',
-  zipCode: '12345',
-  website: 'https://demo-business.com',
-  description: 'This is a demo business description.',
-  timezone: 'America/New_York',
-  currency: 'USD'
-}
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // TODO: Replace with actual database query
-    // const settings = await db.businessSettings.findFirst({
-    //   where: { userId: currentUser.id }
-    // })
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get user with entrepreneur profile
+    const userData = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        entrepreneurProfile: true
+      }
+    })
+
+    if (!userData) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Format response
+    const businessSettings = {
+      businessName: userData.entrepreneurProfile?.businessName || '',
+      slug: userData.entrepreneurProfile?.slug || '',
+      description: userData.entrepreneurProfile?.description || '',
+      address: userData.entrepreneurProfile?.address || '',
+      city: userData.entrepreneurProfile?.city || '',
+      state: userData.entrepreneurProfile?.state || '',
+      zipCode: userData.entrepreneurProfile?.zipCode || '',
+      timezone: userData.entrepreneurProfile?.timezone || 'Eastern Time',
+      currency: userData.entrepreneurProfile?.currency || 'USD'
+    }
 
     return NextResponse.json(businessSettings)
   } catch (error) {
-    console.error('Failed to fetch business settings:', error)
+    console.error('Business Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch business settings' },
       { status: 500 }
@@ -48,41 +51,52 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const data: BusinessSettings = await request.json()
-    
-    // Basic validation
-    if (!data.businessName?.trim()) {
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
       return NextResponse.json(
-        { error: 'Business name is required' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       )
     }
 
-    if (!data.email?.trim() || !data.email.includes('@')) {
-      return NextResponse.json(
-        { error: 'Valid email is required' },
-        { status: 400 }
-      )
-    }
+    const data = await request.json()
 
-    // TODO: Replace with actual database update
-    // const updatedSettings = await db.businessSettings.upsert({
-    //   where: { userId: currentUser.id },
-    //   update: data,
-    //   create: { ...data, userId: currentUser.id }
-    // })
-
-    // Update in-memory storage for now
-    businessSettings = { ...data }
-
-    return NextResponse.json({ 
-      message: 'Business settings updated successfully',
-      data: businessSettings 
+    // Update or create entrepreneur profile
+    const updatedProfile = await prisma.entrepreneurProfile.upsert({
+      where: {
+        userId: user.userId
+      },
+      update: {
+        businessName: data.businessName,
+        slug: data.slug,
+        description: data.description,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zipCode: data.zipCode,
+        timezone: data.timezone,
+        currency: data.currency
+      },
+      create: {
+        userId: user.userId,
+        businessName: data.businessName,
+        slug: data.slug,
+        description: data.description || '',
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
+        zipCode: data.zipCode || '',
+        timezone: data.timezone || 'Eastern Time',
+        currency: data.currency || 'USD'
+      }
     })
+
+    return NextResponse.json(updatedProfile)
   } catch (error) {
-    console.error('Failed to update business settings:', error)
+    console.error('Update Business Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to update business settings' },
       { status: 500 }

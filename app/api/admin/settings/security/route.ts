@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
 export async function PUT(request: NextRequest) {
     try {
+
+      // Get the authenticated user
+      const user = await getUserFromRequest(request)
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
+
+      const userId = user.userId
+      if (!userId) {
+        return NextResponse.json(
+          { success: false, error: 'User ID not found' },
+          { status: 400 }
+        )
+      }
+
       const body = await request.json()
-      const { userId, currentPassword, newPassword } = body
+      const {currentPassword, newPassword } = body
   
       if (!userId || !currentPassword || !newPassword) {
         return NextResponse.json(
@@ -15,11 +34,11 @@ export async function PUT(request: NextRequest) {
       }
   
       // Get current user
-      const user = await prisma.user.findUnique({
+      const userData = await prisma.user.findUnique({
         where: { id: userId }
       })
   
-      if (!user) {
+      if (!userData) {
         return NextResponse.json(
           { success: false, error: 'User not found' },
           { status: 404 }
@@ -27,7 +46,7 @@ export async function PUT(request: NextRequest) {
       }
   
       // Verify current password
-      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, userData.password)
       if (!isCurrentPasswordValid) {
         return NextResponse.json(
           { success: false, error: 'Current password is incorrect' },
