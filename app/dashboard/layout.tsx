@@ -21,12 +21,12 @@ import {
 } from 'lucide-react'
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: Home },                    // Main admin page
-  { name: 'Appointments', href: '/admin/appointments', icon: Calendar },
-  { name: 'Services', href: '/admin/services', icon: Users },
-  { name: 'Availability', href: '/admin/availability', icon: Clock },
-  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Home', href: '/dashboard', icon: Home },                    // Main dashboard page
+  { name: 'Appointments', href: '/dashboard/appointments', icon: Calendar },
+  { name: 'Services', href: '/dashboard/services', icon: Users },
+  { name: 'Availability', href: '/dashboard/availability', icon: Clock },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
 export default function DashboardLayout({
@@ -164,14 +164,14 @@ export default function DashboardLayout({
                 {userMenuOpen && (
                   <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
                     <Link
-                      href="/admin/settings"
+                      href="/dashboard/settings"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >
                       Your Profile
                     </Link>
                     <Link
-                      href="/admin/settings"
+                      href="/dashboard/settings"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >

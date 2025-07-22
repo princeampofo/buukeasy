@@ -1,4 +1,4 @@
-// /app/admin/page.tsx
+// /app/dashboard/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -77,7 +77,7 @@ export default function DashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/admin/dashboard')
+      const response = await fetch('/api/dashboard')
       if (!response.ok) throw new Error('Failed to fetch dashboard data')
       
       const data = await response.json()
@@ -150,7 +150,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4 flex md:mt-0 md:ml-4">
             <Link
-              href="/admin/services/new"
+              href="/dashboard/services/new"
               className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -265,7 +265,7 @@ export default function DashboardPage() {
                       className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <Link
-                      href="/admin/appointments"
+                      href="/dashboard/appointments"
                       className="text-sm text-blue-600 hover:text-blue-900 flex items-center"
                     >
                       View all
@@ -381,14 +381,14 @@ export default function DashboardPage() {
               <div className="px-6 py-4">
                 <div className="space-y-3">
                   <Link
-                    href="/admin/services"
+                    href="/dashboard/services"
                     className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Manage Services
                   </Link>
                   <Link
-                    href="/admin/availability"
+                    href="/dashboard/availability"
                     className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
                     <Clock className="h-4 w-4 mr-2" />

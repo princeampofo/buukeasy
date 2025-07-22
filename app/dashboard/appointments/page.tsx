@@ -84,7 +84,7 @@ const AppointmentsPage = () => {
       if (selectedDate) params.append('date', selectedDate)
       if (searchTerm) params.append('search', searchTerm)
 
-      const response = await fetch(`/api/admin/appointments?${params.toString()}`)
+      const response = await fetch(`/api/dashboard/appointments?${params.toString()}`)
       
       if (!response.ok) {
         throw new Error('Failed to fetch appointments')
@@ -107,7 +107,7 @@ const AppointmentsPage = () => {
 
   const handleMarkComplete = async (id: number) => {
     try {
-      const response = await fetch(`/api/admin/appointments/${id}`, {
+      const response = await fetch(`/api/dashboard/appointments/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +128,7 @@ const AppointmentsPage = () => {
 
   const handleCancelAppointment = async (id: number) => {
     try {
-      const response = await fetch(`/api/admin/appointments/${id}`, {
+      const response = await fetch(`/api/dashboard/appointments/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -32,7 +32,7 @@ export default function SignupPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.push('/admin')
+      router.push('/dashboard')
     }
   }, [isAuthenticated, loading, router])
 
@@ -82,7 +82,7 @@ export default function SignupPage() {
     })
     
     if (success) {
-      router.push('/admin')
+      router.push('/dashboard')
     }
     
     setIsLoading(false)

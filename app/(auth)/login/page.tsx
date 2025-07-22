@@ -21,7 +21,7 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.push('/admin')
+      router.push('/dashboard')
     }
   }, [isAuthenticated, loading, router])
 
@@ -40,7 +40,7 @@ export default function LoginPage() {
     const success = await login(formData.email, formData.password, formData.rememberMe)
     
     if (success) {
-      router.push('/admin')
+      router.push('/dashboard')
     }
     
     setIsLoading(false)

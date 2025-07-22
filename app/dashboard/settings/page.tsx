@@ -130,15 +130,15 @@ export default function SettingsPage() {
 
       switch (settingsType) {
         case 'business':
-          endpoint = '/api/admin/settings/business'
+          endpoint = '/api/dashboard/settings/business'
           data = businessSettings
           break
         case 'notifications':
-          endpoint = '/api/admin/settings/notifications'
+          endpoint = '/api/dashboard/settings/notifications'
           data = notificationSettings
           break
         case 'password':
-          endpoint = '/api/admin/settings/security'
+          endpoint = '/api/dashboard/settings/security'
           data = passwordData
           break
       }

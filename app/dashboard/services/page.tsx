@@ -88,7 +88,7 @@ export default function ServicesPage() {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await fetch('/api/admin/services')
+      const response = await fetch('/api/dashboard/services')
       if (!response.ok) throw new Error('Failed to fetch services')
       
       const data = await response.json()
@@ -107,7 +107,7 @@ export default function ServicesPage() {
 
   const handleDeleteService = async (id: string) => {
     try {
-      const response = await fetch(`/api/admin/services/${id}`, {
+      const response = await fetch(`/api/dashboard/services/${id}`, {
         method: 'DELETE'
       })
       
@@ -160,7 +160,7 @@ export default function ServicesPage() {
             </p>
           </div>
           <Button asChild>
-            <Link href="/admin/services/new">
+            <Link href="/dashboard/services/new">
               <Plus className="mr-2 h-4 w-4" />
               Add Service
             </Link>
@@ -209,7 +209,7 @@ export default function ServicesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/admin/services/${service.id}/edit`}>
+                          <Link href={`/dashboard/services/${service.id}/edit`}>
                             Edit Service
                           </Link>
                         </DropdownMenuItem>
@@ -259,7 +259,7 @@ export default function ServicesPage() {
               </p>
               {!searchTerm && selectedCategory === 'All' && (
                 <Button asChild className="mt-6">
-                  <Link href="/admin/services/new">
+                  <Link href="/dashboard/services/new">
                     <Plus className="mr-2 h-4 w-4" />
                     Add your first service
                   </Link>

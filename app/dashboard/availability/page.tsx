@@ -87,7 +87,7 @@ export default function AvailabilityPage() {
         return
       }
       
-      const response = await fetch(`/api/admin/availability?entrepreneurId=${user.id}`)
+      const response = await fetch(`/api/dashboard/availability?entrepreneurId=${user.id}`)
       const result: ApiResponse = await response.json()
       
       if (result.success && result.data) {
@@ -179,7 +179,7 @@ export default function AvailabilityPage() {
         throw new Error('User not authenticated')
       }
 
-      const response = await fetch('/api/admin/availability', {
+      const response = await fetch('/api/dashboard/availability', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

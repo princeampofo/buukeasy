@@ -94,7 +94,7 @@ export default function AnalyticsPage() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`/api/admin/analytics?period=${period}`)
+      const response = await fetch(`/api/dashboard/analytics?period=${period}`)
       if (!response.ok) {
         throw new Error('Failed to fetch analytics data')
       }
@@ -115,7 +115,7 @@ export default function AnalyticsPage() {
 
   const handleExportData = async () => {
     try {
-      const response = await fetch(`/api/admin/analytics/export?period=${selectedPeriod}`)
+      const response = await fetch(`/api/dashboard/analytics/export?period=${selectedPeriod}`)
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)

@@ -1,20 +1,21 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { useAuthContext } from '@/contexts/AuthContext'
-import {
-  Save,
-  ArrowLeft,
-  Clock,
-  DollarSign,
-  Tag,
+import { 
+  Save, 
+  ArrowLeft, 
+  Clock, 
+  DollarSign, 
+  Tag, 
   FileText,
   AlertCircle,
   CheckCircle,
   Upload,
-  X
+  X,
+  Trash2,
+  Eye
 } from 'lucide-react'
 
 interface ServiceFormData {
@@ -30,33 +31,30 @@ interface ServiceFormData {
   bufferTime: number
   instructions: string
   image: File | null
+  existingImageUrl?: string
 }
 
 const categories = [
-  'HAIR_SERVICES',
-  'NAIL_CARE',
-  'SKIN_CARE',
-  'BARBERING',
-  'BEAUTY_TREATMENT',
-  'MASSAGE',
-  'OTHER'
+  'Hair Services',
+  'Grooming',
+  'Skin Care',
+  'Massage',
+  'Consultation',
+  'Wellness',
+  'Beauty',
+  'Other'
 ]
 
-// Function to format category for display
-const formatCategory = (category: string) => {
-  return category
-    .split('_')
-    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
-    .join(' ')
-}
-
-export default function NewServicePage() {
+export default function EditServicePage() {
   const router = useRouter()
-  const { user } = useAuthContext()
+  const params = useParams()
+  const serviceId = params.id as string
+  
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-
+  
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
     description: '',
@@ -69,15 +67,55 @@ export default function NewServicePage() {
     minAdvanceBooking: 1,
     bufferTime: 0,
     instructions: '',
-    image: null
+    image: null,
+    existingImageUrl: ''
   })
+
+  // Load service data on component mount
+  useEffect(() => {
+    const loadServiceData = async () => {
+      try {
+        setIsLoadingData(true)
+        const response = await fetch(`/api/dashboard/services/${serviceId}`)
+        if (!response.ok) throw new Error('Failed to load service')
+        
+        const service = await response.json()
+        
+        setFormData({
+          name: service.name,
+          description: service.description,
+          category: service.category,
+          duration: service.duration,
+          price: service.price,
+          requiresDeposit: service.requiresDeposit,
+          depositAmount: service.depositAmount,
+          maxAdvanceBooking: service.maxAdvanceBooking,
+          minAdvanceBooking: service.minAdvanceBooking,
+          bufferTime: service.bufferTime,
+          instructions: service.instructions,
+          image: null,
+          existingImageUrl: service.imageUrl
+        })
+        
+        if (service.imageUrl) {
+          setImagePreview(service.imageUrl)
+        }
+      } catch (error) {
+        setErrors({ load: 'Failed to load service data' })
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+
+    loadServiceData()
+  }, [serviceId])
 
   const handleInputChange = (field: keyof ServiceFormData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }))
-
+    
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
@@ -97,20 +135,22 @@ export default function NewServicePage() {
         }))
         return
       }
-
+      
       const reader = new FileReader()
       reader.onloadend = () => {
         setImagePreview(reader.result as string)
       }
       reader.readAsDataURL(file)
-
+      
       handleInputChange('image', file)
+      handleInputChange('existingImageUrl', '') // Clear existing image URL when uploading new one
     }
   }
 
   const removeImage = () => {
     setImagePreview(null)
     handleInputChange('image', null)
+    handleInputChange('existingImageUrl', '')
     // Reset file input
     const fileInput = document.getElementById('image-upload') as HTMLInputElement
     if (fileInput) fileInput.value = ''
@@ -153,29 +193,13 @@ export default function NewServicePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!validateForm()) {
-      return
-    }
-
-    if (!user) {
-      setErrors({ submit: 'You must be logged in to create a service' })
-      return
-    }
-
-    if (!user.businessSlug) {
-      setErrors({ submit: 'Business profile not found' })
-      return
-    }
+    
+    if (!validateForm()) return
 
     setIsLoading(true)
 
     try {
       const submitData = new FormData()
-
-      // Add entrepreneurId to form data using the business profile ID
-      submitData.append('entrepreneurId', user.businessSlug)
-
       Object.entries(formData).forEach(([key, value]) => {
         if (key === 'image' && value instanceof File) {
           submitData.append(key, value)
@@ -184,16 +208,16 @@ export default function NewServicePage() {
         }
       })
 
-      const response = await fetch('/api/admin/services', {
-        method: 'POST',
+      const response = await fetch(`/api/dashboard/services/${serviceId}`, {
+        method: 'PUT',
         body: submitData
       })
 
       if (response.ok) {
-        router.push('/admin/services')
+        router.push('/dashboard/services')
       } else {
         const data = await response.json()
-        setErrors({ submit: data.error || 'Failed to create service' })
+        setErrors({ submit: data.error || 'Failed to update service' })
       }
     } catch (error) {
       setErrors({ submit: 'An error occurred. Please try again.' })
@@ -202,10 +226,10 @@ export default function NewServicePage() {
     }
   }
 
-  if (isLoading) {
+  if (isLoadingData) {
     return (
       <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
@@ -219,21 +243,36 @@ export default function NewServicePage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/admin/services"
-              className="flex items-center text-gray-500 hover:text-gray-700"
-            >
-              <ArrowLeft className="h-5 w-5 mr-1" />
-              Back to Services
-            </Link>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center space-x-4">
+                <Link 
+                  href="/dashboard/services"
+                  className="flex items-center text-gray-500 hover:text-gray-700"
+                >
+                  <ArrowLeft className="h-5 w-5 mr-1" />
+                  Back to Services
+                </Link>
+              </div>
+              <h2 className="mt-4 text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                Edit Service
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Update your service details and settings
+              </p>
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="flex space-x-3">
+              <Link
+                href={`/book/your-business?service=${serviceId}`}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Link>
+            </div>
           </div>
-          <h2 className="mt-4 text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-            Add New Service
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Create a new service for your business
-          </p>
         </div>
 
         {/* Form */}
@@ -245,6 +284,17 @@ export default function NewServicePage() {
                 <AlertCircle className="h-5 w-5 text-red-400" />
                 <div className="ml-3">
                   <p className="text-sm text-red-800">{errors.submit}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {errors.load && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <p className="text-sm text-red-800">{errors.load}</p>
                 </div>
               </div>
             </div>
@@ -268,8 +318,9 @@ export default function NewServicePage() {
                     id="name"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
+                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
                     placeholder="e.g., Hair Cut & Style"
                   />
                   {errors.name && (
@@ -288,7 +339,7 @@ export default function NewServicePage() {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {categories.map(category => (
-                      <option key={category} value={category}>{formatCategory(category)}</option>
+                      <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
                 </div>
@@ -303,8 +354,9 @@ export default function NewServicePage() {
                   rows={4}
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                    }`}
+                  className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
                   placeholder="Describe your service..."
                 />
                 {errors.description && (
@@ -385,11 +437,12 @@ export default function NewServicePage() {
                       type="number"
                       id="duration"
                       min="1"
-                      step="1"
+                      step="5"
                       value={formData.duration}
                       onChange={(e) => handleInputChange('duration', parseInt(e.target.value) || 0)}
-                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.duration ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                        }`}
+                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.duration ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
                   </div>
                   {errors.duration && (
@@ -410,8 +463,9 @@ export default function NewServicePage() {
                       step="0.01"
                       value={formData.price}
                       onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.price ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                        }`}
+                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.price ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
                   </div>
                   {errors.price && (
@@ -428,7 +482,7 @@ export default function NewServicePage() {
                     type="number"
                     id="bufferTime"
                     min="0"
-                    step="1"
+                    step="5"
                     value={formData.bufferTime}
                     onChange={(e) => handleInputChange('bufferTime', parseInt(e.target.value) || 0)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -467,8 +521,9 @@ export default function NewServicePage() {
                           step="0.01"
                           value={formData.depositAmount}
                           onChange={(e) => handleInputChange('depositAmount', parseFloat(e.target.value) || 0)}
-                          className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.depositAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                            }`}
+                          className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            errors.depositAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          }`}
                         />
                       </div>
                       {errors.depositAmount && (
@@ -515,8 +570,9 @@ export default function NewServicePage() {
                     min="1"
                     value={formData.maxAdvanceBooking}
                     onChange={(e) => handleInputChange('maxAdvanceBooking', parseInt(e.target.value) || 1)}
-                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.maxAdvanceBooking ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
+                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.maxAdvanceBooking ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
                   {errors.maxAdvanceBooking && (
                     <p className="mt-1 text-sm text-red-600">{errors.maxAdvanceBooking}</p>
@@ -544,26 +600,24 @@ export default function NewServicePage() {
           {/* Action Buttons */}
           <div className="flex items-center justify-between">
             <Link
-              href="/admin/services"
+              href="/dashboard/services"
               className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Cancel
             </Link>
 
-            <div className="flex space-x-3">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Create Service
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Save Changes
+            </button>
           </div>
         </form>
       </div>
