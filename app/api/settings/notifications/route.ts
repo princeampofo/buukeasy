@@ -1,67 +1,94 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
-    try {
-      const { searchParams } = new URL(request.url)
-      const userId = searchParams.get('userId')
-      
-      if (!userId) {
-        return NextResponse.json(
-          { success: false, error: 'User ID required' },
-          { status: 400 }
-        )
-      }
-  
-      const settings = await prisma.notificationSettings.findUnique({
-        where: { userId }
-      })
-  
+export async function GET(request: Request) {
+  try {
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get notification settings
+    const settings = await prisma.notificationSettings.findUnique({
+      where: { userId: user.userId }
+    })
+
+    if (!settings) {
       // Return default settings if none exist
-      const notificationPreferences = settings || {
-        emailNewBookings: true,
+      return NextResponse.json({
+        emailBookings: true,
         emailCancellations: true,
-        emailDailyReminders: false,
-        emailMarketingPromotions: false,
-        emailWeeklyReports: true,
-        smsNewBookings: false,
+        emailReminders: true,
+        smsBookings: false,
         smsCancellations: false,
-        smsReminders: false
+        smsReminders: false,
+        marketingEmails: true,
+        weeklyReports: true
+      })
+    }
+
+    return NextResponse.json(settings)
+  } catch (error) {
+    console.error('Notification Settings API Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch notification settings' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const data = await request.json()
+
+    // Update or create notification settings
+    const settings = await prisma.notificationSettings.upsert({
+      where: {
+        userId: user.userId
+      },
+      update: {
+        emailBookings: data.emailBookings,
+        emailCancellations: data.emailCancellations,
+        emailReminders: data.emailReminders,
+        smsBookings: data.smsBookings,
+        smsCancellations: data.smsCancellations,
+        smsReminders: data.smsReminders,
+        marketingEmails: data.marketingEmails,
+        weeklyReports: data.weeklyReports
+      },
+      create: {
+        userId: user.userId,
+        emailBookings: data.emailBookings ?? true,
+        emailCancellations: data.emailCancellations ?? true,
+        emailReminders: data.emailReminders ?? true,
+        smsBookings: data.smsBookings ?? false,
+        smsCancellations: data.smsCancellations ?? false,
+        smsReminders: data.smsReminders ?? false,
+        marketingEmails: data.marketingEmails ?? true,
+        weeklyReports: data.weeklyReports ?? true
       }
-  
-      return NextResponse.json({ success: true, data: notificationPreferences })
-    } catch (error) {
-      console.error('Notification settings fetch error:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch notification preferences' },
-        { status: 500 }
-      )
-    }
+    })
+
+    return NextResponse.json(settings)
+  } catch (error) {
+    console.error('Update Notification Settings API Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to update notification settings' },
+      { status: 500 }
+    )
   }
-  
-  export async function PUT(request: NextRequest) {
-    try {
-      const body = await request.json()
-      const { userId, ...preferences } = body
-  
-      await prisma.notificationSettings.upsert({
-        where: { userId },
-        update: preferences,
-        create: {
-          userId,
-          ...preferences
-        }
-      })
-  
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Notification preferences saved successfully' 
-      })
-    } catch (error) {
-      console.error('Notification settings update error:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to save notification preferences' },
-        { status: 500 }
-      )
-    }
-  }
+}

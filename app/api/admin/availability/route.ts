@@ -1,144 +1,117 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
-// Map of day numbers to day names (0 = Sunday, 1 = Monday, etc.)
-const dayNumberToName = {
-  0: 'sunday',
-  1: 'monday',
-  2: 'tuesday',
-  3: 'wednesday',
-  4: 'thursday',
-  5: 'friday',
-  6: 'saturday'
-}
-
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('entrepreneurId')
-
-    if (!userId) {
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'User ID required' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       )
     }
 
-    // Get the entrepreneur profile ID
-    const profile = await prisma.entrepreneurProfile.findUnique({
-      where: { userId }
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: user.userId }
     })
 
-    if (!profile) {
+    if (!entrepreneurProfile) {
       return NextResponse.json(
         { success: false, error: 'Entrepreneur profile not found' },
         { status: 404 }
       )
     }
 
+    // Get all time slots for the entrepreneur
     const timeSlots = await prisma.timeSlot.findMany({
-      where: { entrepreneurId: profile.id },
-      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }]
+      where: { entrepreneurId: entrepreneurProfile.id },
+      orderBy: [
+        { dayOfWeek: 'asc' },
+        { startTime: 'asc' }
+      ]
     })
 
-    // Initialize empty schedule with all days
-    const schedule = {
-      monday: { enabled: false, slots: [] },
-      tuesday: { enabled: false, slots: [] },
-      wednesday: { enabled: false, slots: [] },
-      thursday: { enabled: false, slots: [] },
-      friday: { enabled: false, slots: [] },
-      saturday: { enabled: false, slots: [] },
-      sunday: { enabled: false, slots: [] }
-    }
+    // Format the time slots by day
+    const availabilityByDay = Array.from({ length: 7 }, (_, i) => ({
+      dayOfWeek: i,
+      slots: timeSlots
+        .filter(slot => slot.dayOfWeek === i)
+        .map(slot => ({
+          id: slot.id,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isActive: slot.isActive
+        }))
+    }))
 
-    // Group slots by day and format them
-    timeSlots.forEach(slot => {
-      const dayName = dayNumberToName[slot.dayOfWeek]
-      if (!schedule[dayName].enabled) {
-        schedule[dayName].enabled = true
-      }
-      schedule[dayName].slots.push({
-        start: slot.startTime,
-        end: slot.endTime
-      })
-    })
-
-    return NextResponse.json({ success: true, data: schedule })
+    return NextResponse.json(availabilityByDay)
   } catch (error) {
-    console.error('Error fetching availability:', error)
+    console.error('Availability API Error:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch availability' },
+      { error: 'Failed to fetch availability' },
       { status: 500 }
     )
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { entrepreneurId: userId, availabilityData } = body
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
 
-    // Get the entrepreneur profile ID
-    const profile = await prisma.entrepreneurProfile.findUnique({
-      where: { userId }
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: user.userId }
     })
 
-    if (!profile) {
+    if (!entrepreneurProfile) {
       return NextResponse.json(
         { success: false, error: 'Entrepreneur profile not found' },
         { status: 404 }
       )
     }
+
+    const body = await request.json()
+    const { availabilityData } = body
 
     // Delete existing slots for this entrepreneur
     await prisma.timeSlot.deleteMany({
-      where: { entrepreneurId: profile.id }
+      where: { entrepreneurId: entrepreneurProfile.id }
     })
 
-    // Create new slots
-    const slotsToCreate = []
-    for (const [dayOfWeek, dayData] of Object.entries(availabilityData)) {
-      const dayNumber = getDayNumber(dayOfWeek) // Convert day name to number
-      if (dayData.enabled && Array.isArray(dayData.slots)) {
-        for (const slot of dayData.slots) {
-          slotsToCreate.push({
-            entrepreneurId: profile.id,
-            dayOfWeek: dayNumber,
-            startTime: slot.start,
-            endTime: slot.end,
-            isActive: true
-          })
-        }
-      }
-    }
-
-    if (slotsToCreate.length > 0) {
-      await prisma.timeSlot.createMany({
-        data: slotsToCreate
+    // Create new time slots
+    const timeSlots = await Promise.all(
+      availabilityData.flatMap(async (day: any) => {
+        return day.slots.map((slot: any) => ({
+          entrepreneurId: entrepreneurProfile.id,
+          dayOfWeek: day.dayOfWeek,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isActive: true
+        }))
       })
-    }
+    )
 
-    return NextResponse.json({ success: true, message: 'Availability updated' })
+    // Bulk create all time slots
+    await prisma.timeSlot.createMany({
+      data: timeSlots.flat()
+    })
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Availability update error:', error)
+    console.error('Update Availability API Error:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to update availability' },
+      { error: 'Failed to update availability' },
       { status: 500 }
     )
   }
-}
-
-// Helper function to convert day name to number (0-6, where 0 is Sunday)
-function getDayNumber(dayName: string): number {
-  const days = {
-    sunday: 0,
-    monday: 1,
-    tuesday: 2,
-    wednesday: 3,
-    thursday: 4,
-    friday: 5,
-    saturday: 6
-  }
-  return days[dayName.toLowerCase()] || 0
 }

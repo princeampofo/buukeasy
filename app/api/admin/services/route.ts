@@ -1,86 +1,92 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const entrepreneurId = searchParams.get('entrepreneurId')
-    
-    if (!entrepreneurId) {
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Entrepreneur ID required' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: user.userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
       )
     }
 
     const services = await prisma.service.findMany({
-      where: { entrepreneurId },
+      where: { entrepreneurId: entrepreneurProfile.id },
       orderBy: { createdAt: 'desc' }
     })
 
-    return NextResponse.json({ success: true, data: services })
+    return NextResponse.json(services)
   } catch (error) {
+    console.error('Services API Error:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch services' },
+      { error: 'Failed to fetch services' },
       { status: 500 }
     )
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    
-    // Extract data from FormData
-    const name = formData.get('name') as string
-    const category = formData.get('category') as string
-    const description = formData.get('description') as string
-    const duration = formData.get('duration') as string
-    const price = formData.get('price') as string
-    const bufferTime = formData.get('bufferTime') as string
-    const requireDeposit = formData.get('requiresDeposit') === 'true'
-    const minAdvanceHours = formData.get('minAdvanceBooking') as string
-    const maxAdvanceDays = formData.get('maxAdvanceBooking') as string
-    const specialInstructions = formData.get('instructions') as string
-    const image = formData.get('image') as File | null
-
-    // Validation
-    if (!name || !category || !duration) {
+    // Get the authenticated user
+    const user = await getUserFromRequest(request)
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Name, category, and duration are required' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       )
     }
 
-    // TODO: Handle image upload if needed
-    let imageUrl = null
-    if (image) {
-      // Add image upload logic here
-      // For now, we'll skip this
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: user.userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
     }
 
+    const formData = await request.formData()
+    
     const service = await prisma.service.create({
       data: {
-        entrepreneurId: formData.get('entrepreneurId') as string,
-        name,
-        category,
-        description: description || null,
-        duration: parseInt(duration),
-        price: parseFloat(price) || 0,
-        bufferTime: parseInt(bufferTime) || 0,
-        requireDeposit,
-        minAdvanceHours: parseInt(minAdvanceHours) || 1,
-        maxAdvanceDays: parseInt(maxAdvanceDays) || 30,
-        specialInstructions: specialInstructions || null,
-        imageUrl
+        entrepreneurId: entrepreneurProfile.id,
+        name: formData.get('name') as string,
+        category: formData.get('category') as string,
+        description: formData.get('description') as string,
+        duration: parseInt(formData.get('duration') as string),
+        price: parseFloat(formData.get('price') as string),
+        bufferTime: parseInt(formData.get('bufferTime') as string || '0'),
+        requireDeposit: formData.get('requireDeposit') === 'true',
+        minAdvanceHours: parseInt(formData.get('minAdvanceHours') as string || '1'),
+        maxAdvanceDays: parseInt(formData.get('maxAdvanceDays') as string || '30'),
+        specialInstructions: formData.get('specialInstructions') as string,
+        imageUrl: formData.get('imageUrl') as string,
       }
     })
 
-    return NextResponse.json({ success: true, data: service }, { status: 201 })
+    return NextResponse.json(service)
   } catch (error) {
-    console.error('Service creation error:', error)
+    console.error('Create Service API Error:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to create service' },
+      { error: 'Failed to create service' },
       { status: 500 }
     )
   }
