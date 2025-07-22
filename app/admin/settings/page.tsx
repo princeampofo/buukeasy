@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useToast } from '@/components/ui/use-toast'
+import { toast } from 'sonner'
 
 interface BusinessSettings {
   businessName: string
@@ -55,8 +55,8 @@ const settingsTabs = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('business')
-  const { toast } = useToast()
-
+  // Remove useToast since we're using Sonner
+  
   // Business settings state
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings>({
     businessName: '',
@@ -153,25 +153,14 @@ export default function SettingsPage() {
         if (settingsType === 'password') {
           setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
         }
-        toast({
-          title: 'Settings saved',
-          description: 'Your settings have been saved successfully.',
-        })
+        toast.success('Settings saved successfully')
       } else {
         const errorData = await response.json()
-        toast({
-          title: 'Error saving settings',
-          description: errorData.message || 'Failed to save settings. Please try again.',
-          variant: 'destructive',
-        })
+        toast.error(errorData.message || 'Failed to save settings. Please try again.')
       }
     } catch (error) {
       console.error('Save error:', error)
-      toast({
-        title: 'Error saving settings',
-        description: 'Failed to save settings. Please try again.',
-        variant: 'destructive',
-      })
+      toast.error('Failed to save settings. Please try again.')
     }
   }
 
