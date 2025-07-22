@@ -30,11 +30,14 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' }
     })
 
-    return NextResponse.json(services)
+    return NextResponse.json({
+      success: true,
+      data: services
+    })
   } catch (error) {
     console.error('Services API Error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch services' },
+      { success: false, error: 'Failed to fetch services' },
       { status: 500 }
     )
   }
@@ -64,7 +67,7 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData()
-    
+
     const service = await prisma.service.create({
       data: {
         entrepreneurId: entrepreneurProfile.id,

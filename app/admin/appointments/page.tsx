@@ -1,9 +1,10 @@
 'use client'
 
+import * as React from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Search, 
   Filter, 
   Plus, 
@@ -24,36 +25,56 @@ import {
   ChevronRight
 } from 'lucide-react'
 
+import { cn } from "@/lib/utils"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
 interface Appointment {
   id: number
   clientName: string
   clientEmail: string
   clientPhone: string
   service: string
-  date: string // ISO date string
-  time: string // e.g. "14:30"
-  duration: number // in minutes
-  price?: number // optional, can be null or undefined
+  date: string
+  time: string
+  duration: number
+  price?: number
   status: 'confirmed' | 'modified' | 'cancelled' | 'completed'
-  notes?: string // optional notes field
-  formattedDate?: string // optional formatted date for display
-  formattedPrice?: string // optional formatted price for display
+  notes?: string
+  formattedDate?: string
+  formattedPrice?: string
 }
 
 const statusOptions = ['all', 'confirmed', 'modified', 'cancelled']
 
-export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState('all')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]) // default to today
-  const [currentWeek, setCurrentWeek] = useState(new Date())
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
-  const [openDropdown, setOpenDropdown] = useState<number | null>(null)
+const statusConfig = {
+  confirmed: { variant: 'success' as const, icon: CheckCircle },
+  modified: { variant: 'warning' as const, icon: Edit3 },
+  cancelled: { variant: 'destructive' as const, icon: XCircle },
+  completed: { variant: 'default' as const, icon: CheckCircle },
+} as const
 
-  // Fetch appointments from API
+const AppointmentsPage = () => {
+  const [appointments, setAppointments] = React.useState<Appointment[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = React.useState('')
+  const [selectedStatus, setSelectedStatus] = React.useState('all')
+  const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split('T')[0])
+  const [currentWeek, setCurrentWeek] = React.useState(new Date())
+  const [viewMode, setViewMode] = React.useState<'list' | 'calendar'>('list')
+  const [openDropdown, setOpenDropdown] = React.useState<number | null>(null)
+  const [confirmDialog, setConfirmDialog] = React.useState<{ type: 'complete' | 'cancel', id: number } | null>(null)
+
   const fetchAppointments = async () => {
     try {
       setLoading(true)
@@ -80,20 +101,9 @@ export default function AppointmentsPage() {
     }
   }
 
-  // Fetch appointments on component mount and when filters change
   useEffect(() => {
     fetchAppointments()
   }, [selectedStatus, selectedDate, searchTerm])
-
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      confirmed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
-      modified: { bg: 'bg-orange-100', text: 'text-orange-800', icon: Edit3 },
-      cancelled: { bg: 'bg-red-100', text: 'text-red-800', icon: XCircle },
-      completed: { bg: 'bg-blue-100', text: 'text-blue-800', icon: CheckCircle },
-    }
-    return styles[status as keyof typeof styles] || styles.confirmed
-  }
 
   const handleMarkComplete = async (id: number) => {
     try {
@@ -109,12 +119,10 @@ export default function AppointmentsPage() {
         throw new Error('Failed to mark appointment as complete')
       }
 
-      // Refresh appointments list
       await fetchAppointments()
-      setOpenDropdown(null)
+      setConfirmDialog(null)
     } catch (err) {
       console.error('Error marking appointment as complete:', err)
-      // TODO: Show error toast/notification
     }
   }
 
@@ -132,12 +140,10 @@ export default function AppointmentsPage() {
         throw new Error('Failed to cancel appointment')
       }
 
-      // Refresh appointments list
       await fetchAppointments()
-      setOpenDropdown(null)
+      setConfirmDialog(null)
     } catch (err) {
       console.error('Error cancelling appointment:', err)
-      // TODO: Show error toast/notification
     }
   }
 
@@ -158,17 +164,11 @@ export default function AppointmentsPage() {
 
   if (loading) {
     return (
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-20 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-          </div>
+      <div className="container py-6">
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="w-full h-[200px] animate-pulse bg-gray-100" />
+          ))}
         </div>
       </div>
     )
@@ -176,298 +176,299 @@ export default function AppointmentsPage() {
 
   if (error) {
     return (
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <XCircle className="h-5 w-5 text-red-400" />
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error loading appointments</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{error}</p>
-                </div>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    className="bg-red-100 px-3 py-2 rounded-md text-sm font-medium text-red-800 hover:bg-red-200"
-                    onClick={fetchAppointments}
-                  >
-                    Try again
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="container py-6">
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Error loading appointments</CardTitle>
+            <CardDescription className="text-destructive">{error}</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button variant="outline" onClick={fetchAppointments}>
+              Try again
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+    <div className="container py-6">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-              Appointments
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Appointments</h2>
+            <p className="text-muted-foreground">
               Manage your upcoming and past appointments
             </p>
           </div>
-          <div className="mt-4 flex space-x-3 md:mt-0 md:ml-4">
-            <div className="flex rounded-md shadow-sm">
-              <button
-                type="button"
-                className={`px-4 py-2 text-sm font-medium rounded-l-md border ${
-                  viewMode === 'list' 
-                    ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-              <button
-                type="button"
-                className={`px-4 py-2 text-sm font-medium rounded-r-md border-t border-r border-b ${
-                  viewMode === 'calendar' 
-                    ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-                onClick={() => setViewMode('calendar')}
-              >
-                Calendar
-              </button>
-            </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              onClick={() => setViewMode('list')}
+            >
+              List
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'default' : 'outline'}
+              onClick={() => setViewMode('calendar')}
+            >
+              Calendar
+            </Button>
           </div>
         </div>
 
+        <Separator />
+
         {/* Filters */}
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div className="sm:col-span-2">
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 placeholder="Search appointments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="pl-9"
               />
             </div>
           </div>
 
-          <div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-            >
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
               {statusOptions.map(status => (
-                <option key={status} value={status}>
+                <SelectItem key={status} value={status}>
                   {status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-          </div>
+            </SelectContent>
+          </Select>
 
-          <div>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? new Date(selectedDate).toLocaleDateString() : "Pick a date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={new Date(selectedDate)}
+                onSelect={(date) => date && setSelectedDate(date.toISOString().split('T')[0])}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Content */}
         {viewMode === 'list' ? (
-          <div className="mt-8">
+          <div className="space-y-4">
             {appointments.length > 0 ? (
-              <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-gray-200">
-                  {appointments.map((appointment) => {
-                    const statusConfig = getStatusBadge(appointment.status)
-                    return (
-                      <li key={appointment.id} className="px-6 py-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center flex-1">
-                            <div className="flex-shrink-0">
-                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <User className="h-5 w-5 text-blue-600" />
-                              </div>
-                            </div>
-                            <div className="ml-4 flex-1">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {appointment.clientName}
-                                  </p>
-                                  <p className="text-sm text-gray-500">
-                                    {appointment.service}
-                                  </p>
-                                </div>
-                                <div className="flex items-center space-x-4">
-                                  <div className="text-right">
-                                    <p className="text-sm font-medium text-gray-900">
-                                      {appointment.formattedDate || new Date(appointment.date).toLocaleDateString()} at {appointment.time}
-                                    </p>
-                                    <p className="text-sm text-gray-500">
-                                      {appointment.duration} min • {appointment.formattedPrice || `$${appointment.price}` || 'Free'}
-                                    </p>
-                                  </div>
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}>
-                                    <statusConfig.icon className="h-3 w-3 mr-1" />
-                                    {appointment.status}
-                                  </span>
-                                  
-                                  <div className="relative">
-                                    <button
-                                      type="button"
-                                      className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      onClick={() => setOpenDropdown(openDropdown === appointment.id ? null : appointment.id)}
-                                    >
-                                      <MoreVertical className="h-4 w-4 text-gray-400" />
-                                    </button>
-                                    
-                                    {openDropdown === appointment.id && (
-                                      <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                                        <div className="py-1">
-                                          <button
-                                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                            onClick={() => handleMarkComplete(appointment.id)}
-                                          >
-                                            <CheckCircle className="h-4 w-4 mr-2" />
-                                            Mark as Complete
-                                          </button>
-                                          <button
-                                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                                            onClick={() => handleCancelAppointment(appointment.id)}
-                                          >
-                                            <XCircle className="h-4 w-4 mr-2" />
-                                            Cancel Appointment
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {appointment.notes && (
-                                <p className="mt-2 text-sm text-gray-600">
-                                  <strong>Notes:</strong> {appointment.notes}
-                                </p>
-                              )}
-                              
-                              <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-                                <div className="flex items-center">
-                                  <Mail className="h-3 w-3 mr-1" />
-                                  {appointment.clientEmail}
-                                </div>
-                                <div className="flex items-center">
-                                  <Phone className="h-3 w-3 mr-1" />
-                                  {appointment.clientPhone}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+              appointments.map((appointment) => (
+                <Card key={appointment.id}>
+                  <CardHeader className="relative pb-2">
+                    <div className="absolute right-6 top-6">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setConfirmDialog({ type: 'complete', id: appointment.id })}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Mark as Complete
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setConfirmDialog({ type: 'cancel', id: appointment.id })}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Cancel Appointment
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <Avatar>
+                        <AvatarFallback>{appointment.clientName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <CardTitle className="text-lg">{appointment.clientName}</CardTitle>
+                        <CardDescription>{appointment.service}</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                        <div className="flex items-center">
+                          <Clock className="mr-1 h-4 w-4" />
+                          {appointment.time} ({appointment.duration} min)
                         </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
+                        <div>
+                          {appointment.formattedPrice || `$${appointment.price}` || 'Free'}
+                        </div>
+                      </div>
+                      <Badge variant={statusConfig[appointment.status].variant}>
+                        {appointment.status}
+                      </Badge>
+                    </div>
+                    
+                    {appointment.notes && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        <strong>Notes:</strong> {appointment.notes}
+                      </p>
+                    )}
+                  </CardContent>
+                  <CardFooter>
+                    <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                      <div className="flex items-center">
+                        <Mail className="mr-1 h-3 w-3" />
+                        {appointment.clientEmail}
+                      </div>
+                      <div className="flex items-center">
+                        <Phone className="mr-1 h-3 w-3" />
+                        {appointment.clientPhone}
+                      </div>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))
             ) : (
-              <div className="text-center py-12">
-                <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No appointments found</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {searchTerm || selectedStatus !== 'all' || selectedDate ? 
-                    'Try adjusting your search or filter criteria.' :
-                    'No appointments scheduled yet.'
-                  }
-                </p>
-              </div>
+              <Card className="p-12">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <CalendarIcon className="h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold">No appointments found</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {searchTerm || selectedStatus !== 'all' || selectedDate ? 
+                      'Try adjusting your search or filter criteria.' :
+                      'No appointments scheduled yet.'
+                    }
+                  </p>
+                </div>
+              </Card>
             )}
           </div>
         ) : (
-          // Calendar View
-          <div className="mt-8 bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <Card>
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  Week of {weekDays[0].toLocaleDateString()}
-                </h3>
+                <CardTitle>Week of {weekDays[0].toLocaleDateString()}</CardTitle>
                 <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <Button
+                    variant="outline"
+                    size="icon"
                     onClick={() => {
                       const prevWeek = new Date(currentWeek)
                       prevWeek.setDate(currentWeek.getDate() - 7)
                       setCurrentWeek(prevWeek)
                     }}
                   >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 py-1 text-sm text-blue-600 hover:text-blue-900"
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => setCurrentWeek(new Date())}
                   >
                     Today
-                  </button>
-                  <button
-                    type="button"
-                    className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
                     onClick={() => {
                       const nextWeek = new Date(currentWeek)
                       nextWeek.setDate(currentWeek.getDate() + 7)
                       setCurrentWeek(nextWeek)
                     }}
                   >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-7 gap-px bg-gray-200">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
-                <div key={day} className="bg-white p-4 min-h-32">
-                  <div className="font-medium text-sm text-gray-900 mb-2">
-                    {day} {weekDays[index].getDate()}
-                  </div>
-                  <div className="space-y-1">
-                    {appointments
-                      .filter(apt => apt.date === weekDays[index].toISOString().split('T')[0])
-                      .map(appointment => {
-                        const statusConfig = getStatusBadge(appointment.status)
-                        return (
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-7 divide-x divide-border">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                  <div key={day} className="p-4 min-h-[200px]">
+                    <div className="font-medium text-sm mb-2">
+                      {day} {weekDays[index].getDate()}
+                    </div>
+                    <div className="space-y-1">
+                      {appointments
+                        .filter(apt => apt.date === weekDays[index].toISOString().split('T')[0])
+                        .map(appointment => (
                           <div
                             key={appointment.id}
-                            className={`p-2 rounded text-xs ${statusConfig.bg} ${statusConfig.text} cursor-pointer hover:opacity-80`}
+                            className="group relative rounded-md p-2 hover:bg-accent cursor-pointer"
                           >
-                            <div className="font-medium">{appointment.time}</div>
-                            <div className="truncate">{appointment.clientName}</div>
-                            <div className="truncate">{appointment.service}</div>
+                            <div className="font-medium text-xs">{appointment.time}</div>
+                            <div className="text-xs truncate">{appointment.clientName}</div>
+                            <div className="text-xs truncate text-muted-foreground">{appointment.service}</div>
+                            <Badge 
+                              variant={statusConfig[appointment.status].variant}
+                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              {appointment.status}
+                            </Badge>
                           </div>
-                        )
-                      })
-                    }
+                        ))
+                      }
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
+
+        {/* Confirmation Dialogs */}
+        <Dialog open={!!confirmDialog} onOpenChange={() => setConfirmDialog(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {confirmDialog?.type === 'complete' ? 'Mark as Complete' : 'Cancel Appointment'}
+              </DialogTitle>
+              <DialogDescription>
+                {confirmDialog?.type === 'complete'
+                  ? 'Are you sure you want to mark this appointment as complete?'
+                  : 'Are you sure you want to cancel this appointment? This action cannot be undone.'}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmDialog(null)}>
+                No, go back
+              </Button>
+              <Button
+                variant={confirmDialog?.type === 'complete' ? 'default' : 'destructive'}
+                onClick={() => {
+                  if (!confirmDialog) return
+                  if (confirmDialog.type === 'complete') {
+                    handleMarkComplete(confirmDialog.id)
+                  } else {
+                    handleCancelAppointment(confirmDialog.id)
+                  }
+                }}
+              >
+                Yes, {confirmDialog?.type === 'complete' ? 'complete' : 'cancel'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
 }
+
+export default AppointmentsPage

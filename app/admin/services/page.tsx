@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect} from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { 
@@ -9,8 +9,17 @@ import {
   Trash2, 
   Clock, 
   DollarSign,
-  Users
+  Users,
+  MoreVertical
 } from 'lucide-react'
+
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
 
 interface Service {
   id: string
@@ -41,7 +50,6 @@ const categories = [
   'OTHER'
 ]
 
-// Function to format category for display
 const formatCategory = (category: string) => {
   if (category === 'All') return category
   return category
@@ -57,6 +65,8 @@ export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.businessSlug) {
@@ -78,7 +88,7 @@ export default function ServicesPage() {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await fetch(`/api/admin/services?entrepreneurId=${user.businessSlug}`)
+      const response = await fetch('/api/admin/services')
       if (!response.ok) throw new Error('Failed to fetch services')
       
       const data = await response.json()
@@ -96,8 +106,6 @@ export default function ServicesPage() {
   }
 
   const handleDeleteService = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this service?')) return
-
     try {
       const response = await fetch(`/api/admin/services/${id}`, {
         method: 'DELETE'
@@ -105,6 +113,7 @@ export default function ServicesPage() {
       
       if (response.ok) {
         setServices(prev => prev.filter(service => service.id !== id))
+        setDeleteDialogOpen(false)
       } else {
         throw new Error('Failed to delete service')
       }
@@ -116,11 +125,11 @@ export default function ServicesPage() {
 
   if (isLoading) {
     return (
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
+      <div className="container py-6">
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="w-full h-[200px] animate-pulse bg-gray-100" />
+          ))}
         </div>
       </div>
     )
@@ -128,220 +137,204 @@ export default function ServicesPage() {
 
   if (error) {
     return (
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error loading services</h3>
-                <p className="mt-2 text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="container py-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-800">Error loading services</CardTitle>
+            <CardDescription className="text-red-600">{error}</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     )
   }
 
-
   return (
-    <div className="py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+    <div className="container py-6">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-              Services
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Services</h2>
+            <p className="text-muted-foreground">
               Manage your business services and pricing
             </p>
           </div>
-          <div className="mt-4 flex md:mt-0 md:ml-4">
-            <Link
-              href="/admin/services/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-2" />
+          <Button asChild>
+            <Link href="/admin/services/new">
+              <Plus className="mr-2 h-4 w-4" />
               Add Service
             </Link>
-          </div>
+          </Button>
         </div>
 
-        {/* Filters */}
-        <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4">
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search services..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
+        <Separator />
 
-          <div className="flex items-center space-x-4">
-            {/* Category Filter */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="block pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-            >
-              {categories.map(category => (
-                <option key={category} value={category}>{formatCategory(category)}</option>
-              ))}
-            </select>
+        {/* Filters */}
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search services..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
           </div>
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map(category => (
+                <SelectItem key={category} value={category}>
+                  {formatCategory(category)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Services Grid */}
-        <div className="mt-8">
-          {filteredServices.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredServices.map((service) => (
-                <div
-                  key={service.id}
-                  className="bg-white overflow-hidden shadow rounded-lg border"
-                >
-                  <div className="px-6 py-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {service.name}
-                          </h3>
-                        </div>
-                        <p className="mt-1 text-sm text-gray-500">{service.description || 'No description available'}</p>
-                        <p className="mt-2 text-xs text-gray-400">{formatCategory(service.category)}</p>
+        {filteredServices.length > 0 ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredServices.map((service) => (
+              <Card key={service.id}>
+                <CardHeader className="relative">
+                  <div className="absolute right-6 top-6">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/services/${service.id}/edit`}>
+                            Edit Service
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => {
+                            setServiceToDelete(service.id)
+                            setDeleteDialogOpen(true)
+                          }}
+                        >
+                          Delete Service
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <CardTitle>{service.name}</CardTitle>
+                  <CardDescription>{service.description || 'No description available'}</CardDescription>
+                  <p className="text-xs text-muted-foreground">{formatCategory(service.category)}</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center text-muted-foreground">
+                        <Clock className="mr-1 h-4 w-4" />
+                        {service.duration} min
                       </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {service.duration} min
-                        </div>
-                        <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 mr-1" />
-                          {service.price === 0 ? 'Free' : `${service.price}`}
-                        </div>
+                      <div className="flex items-center text-muted-foreground">
+                        <DollarSign className="mr-1 h-4 w-4" />
+                        {service.price === 0 ? 'Free' : `${service.price}`}
                       </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Users className="h-4 w-4 mr-1" />
-                        {/* Assuming bookings count is not directly available in the new Service interface */}
-                        {/* For now, we'll show a placeholder or remove if not needed */}
-                        {/* <span>{service.bookings}</span> bookings */}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex space-x-2">
-                      <Link
-                        href={`/admin/services/${service.id}/edit`}
-                        className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-100 transition-colors text-center"
-                      >
-                        Edit Service
-                      </Link>
-                      <button
-                        onClick={() => handleDeleteService(service.id)}
-                        className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-100 transition-colors flex items-center justify-center"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Users className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No services found</h3>
-              <p className="mt-1 text-sm text-gray-500">
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="p-12">
+            <div className="flex flex-col items-center justify-center text-center">
+              <Users className="h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No services found</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
                 {searchTerm || selectedCategory !== 'All' ? 
                   'Try adjusting your search or filter criteria.' :
                   'Get started by creating your first service.'
                 }
               </p>
               {!searchTerm && selectedCategory === 'All' && (
-                <div className="mt-6">
-                  <Link
-                    href="/admin/services/new"
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
+                <Button asChild className="mt-6">
+                  <Link href="/admin/services/new">
+                    <Plus className="mr-2 h-4 w-4" />
                     Add your first service
                   </Link>
-                </div>
+                </Button>
               )}
             </div>
-          )}
-        </div>
+          </Card>
+        )}
 
         {/* Service Statistics */}
         {filteredServices.length > 0 && (
-          <div className="mt-12 bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Service Statistics
-              </h3>
-            </div>
-            <div className="px-6 py-4">
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <Users className="h-6 w-6 text-blue-600" />
+          <Card>
+            <CardHeader>
+              <CardTitle>Service Statistics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Services</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{services.length}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Average Price</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      ${Math.round(services.filter(s => s.price > 0).reduce((acc, s) => acc + s.price, 0) / services.filter(s => s.price > 0).length)}
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-blue-900">Total Services</p>
-                      <p className="text-2xl font-bold text-blue-600">{services.length}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Average Duration</CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {Math.round(services.reduce((acc, s) => acc + s.duration, 0) / services.length)} min
                     </div>
-                  </div>
-                </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <DollarSign className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-green-900">Avg. Price</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        ${Math.round(services.filter(s => s.price > 0).reduce((acc, s) => acc + s.price, 0) / services.filter(s => s.price > 0).length)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <Clock className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-purple-900">Avg. Duration</p>
-                      <p className="text-2xl font-bold text-purple-600">
-                        {Math.round(services.reduce((acc, s) => acc + s.duration, 0) / services.length)} min
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Service</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this service? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => serviceToDelete && handleDeleteService(serviceToDelete)}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
