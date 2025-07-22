@@ -11,7 +11,7 @@ export default function LandingPage() {
             <div className="bg-gradient-to-r from-white to-blue-400 p-2 rounded-lg">
               <Zap className="h-5 w-5 text-blue-800" />
             </div>
-            <span className="ml-3 text-xl font-bold text-white">BuukMe</span>
+            <span className="ml-3 text-xl font-bold text-white">BuukEasy</span>
           </div>
           <div className="flex items-center space-x-4">
             <Link href="/login" className="text-white/80 hover:text-white transition-colors text-sm">
@@ -79,7 +79,7 @@ export default function LandingPage() {
                       <div className="w-3 h-3 bg-yellow-400 rounded-full ml-2"></div>
                       <div className="w-3 h-3 bg-green-400 rounded-full ml-2"></div>
                     </div>
-                    <span className="text-white/60 text-sm">buukme.app/book/sarah</span>
+                    <span className="text-white/60 text-sm">buukeasy.com/book/sarah</span>
                   </div>
                   <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                     <h3 className="text-white font-bold text-lg mb-4">Book with Sarah</h3>
@@ -256,7 +256,7 @@ export default function LandingPage() {
                 <div className="bg-gradient-to-r from-white to-blue-400 p-3 rounded-2xl">
                   <Zap className="h-6 w-6 text-blue-800" />
                 </div>
-                <span className="ml-3 text-2xl font-bold text-white">BuukMe</span>
+                <span className="ml-3 text-2xl font-bold text-white">BuukEasy</span>
               </div>
               <p className="text-white/70 max-w-md mb-6">
                 The future of appointment booking for beauty and wellness professionals. Simple, powerful, and always free.
@@ -281,7 +281,7 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-white/10 pt-8 text-center">
-            <p className="text-white/60">&copy; 2025 BuukMe. Built with ❤️ for beauty professionals everywhere.</p>
+            <p className="text-white/60">&copy; 2025 BuukEasy. Built with ❤️ for beauty professionals everywhere.</p>
           </div>
         </div>
       </footer>
