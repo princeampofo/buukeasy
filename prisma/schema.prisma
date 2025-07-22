@@ -169,8 +169,6 @@ model Payment {
   id              String        @id @default(cuid())
   bookingId       String        @unique
   amount          Float
-  platformFee     Float
-  entrepreneurFee Float
   paymentMethod   String
   paymentIntentId String?
   status          PaymentStatus @default(PENDING)

@@ -1,30 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { 
-  Save, 
-  User, 
-  Building, 
+  Settings, 
   Bell, 
-  CreditCard, 
-  Globe, 
-  Shield, 
-  Smartphone,
-  Mail,
-  MapPin,
-  Phone,
-  Clock,
-  DollarSign,
-  CheckCircle,
-  AlertCircle,
-  Eye,
-  EyeOff,
-  Loader2,
-  Clipboard
+  Lock,
+  Building2
 } from 'lucide-react'
-import { useBilling } from '@/hooks/useBilling'
-import { useAuthContext } from '@/contexts/AuthContext'
-import Link from 'next/link'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useToast } from '@/components/ui/use-toast'
 
 interface BusinessSettings {
   businessName: string
@@ -58,18 +47,15 @@ interface PasswordData {
   confirmPassword: string
 }
 
+const settingsTabs = [
+  { id: 'business', name: 'Business', icon: Building2 },
+  { id: 'notifications', name: 'Notifications', icon: Bell },
+  { id: 'security', name: 'Security', icon: Lock }
+]
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('business')
-  const [isSaving, setIsSaving] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const [showPasswords, setShowPasswords] = useState({
-    current: false,
-    new: false,
-    confirm: false
-  })
-  const [showCopiedMessage, setShowCopiedMessage] = useState(false)
-  const { user } = useAuthContext()
+  const { toast } = useToast()
 
   // Business settings state
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings>({
@@ -106,36 +92,34 @@ export default function SettingsPage() {
     confirmPassword: ''
   })
 
-  const { billingInfo, isLoading: isBillingLoading, error: billingError, downloadInvoice } = useBilling('current-user-id') // TODO: Replace with actual user ID
-
   // Load initial data
-  useEffect(() => {
-    loadSettings()
-  }, [])
+  // useEffect(() => {
+  //   loadSettings()
+  // }, [])
 
-  const loadSettings = async () => {
-    setIsLoading(true)
-    try {
-      // Load business settings
-      const businessResponse = await fetch('/api/admin/settings/business')
-      if (businessResponse.ok) {
-        const businessData = await businessResponse.json()
-        setBusinessSettings(businessData)
-      }
+  // const loadSettings = async () => {
+  //   setIsLoading(true)
+  //   try {
+  //     // Load business settings
+  //     const businessResponse = await fetch('/api/admin/settings/business')
+  //     if (businessResponse.ok) {
+  //       const businessData = await businessResponse.json()
+  //       setBusinessSettings(businessData)
+  //     }
 
-      // Load notification settings
-      const notificationResponse = await fetch('/api/admin/settings/notifications')
-      if (notificationResponse.ok) {
-        const notificationData = await notificationResponse.json()
-        setNotificationSettings(notificationData)
-      }
-    } catch (error) {
-      console.error('Failed to load settings:', error)
-      setSaveStatus('error')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  //     // Load notification settings
+  //     const notificationResponse = await fetch('/api/admin/settings/notifications')
+  //     if (notificationResponse.ok) {
+  //       const notificationData = await notificationResponse.json()
+  //       setNotificationSettings(notificationData)
+  //     }
+  //   } catch (error) {
+  //     console.error('Failed to load settings:', error)
+  //     setSaveStatus('error')
+  //   } finally {
+  //     setIsLoading(false)
+  //   }
+  // }
 
   const handleBusinessSettingsChange = (field: keyof BusinessSettings, value: string) => {
     setBusinessSettings(prev => ({
@@ -159,8 +143,8 @@ export default function SettingsPage() {
   }
 
   const handleSave = async (settingsType: string) => {
-    setIsSaving(true)
-    setSaveStatus('idle')
+    // setIsSaving(true)
+    // setSaveStatus('idle')
 
     try {
       let endpoint = ''
@@ -188,21 +172,35 @@ export default function SettingsPage() {
       })
 
       if (response.ok) {
-        setSaveStatus('success')
+        // setSaveStatus('success')
         if (settingsType === 'password') {
           setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
         }
-        setTimeout(() => setSaveStatus('idle'), 3000)
+        // setTimeout(() => setSaveStatus('idle'), 3000)
+        toast({
+          title: 'Settings saved',
+          description: 'Your settings have been saved.',
+        })
       } else {
         const errorData = await response.json()
         console.error('Save error:', errorData)
-        setSaveStatus('error')
+        // setSaveStatus('error')
+        toast({
+          title: 'Error saving settings',
+          description: errorData.message || 'Failed to save settings. Please try again.',
+          variant: 'destructive',
+        })
       }
     } catch (error) {
       console.error('Save error:', error)
-      setSaveStatus('error')
+      // setSaveStatus('error')
+      toast({
+        title: 'Error saving settings',
+        description: 'Failed to save settings. Please try again.',
+        variant: 'destructive',
+      })
     } finally {
-      setIsSaving(false)
+      // setIsSaving(false)
     }
   }
 
@@ -216,33 +214,33 @@ export default function SettingsPage() {
   }
 
   const copyBookingUrl = async () => {
-    const url = `${window.location.origin}/book/${user?.businessSlug}`
-    await navigator.clipboard.writeText(url)
-    setShowCopiedMessage(true)
-    setTimeout(() => setShowCopiedMessage(false), 2000)
+    // const url = `${window.location.origin}/book/${user?.businessSlug}`
+    // await navigator.clipboard.writeText(url)
+    // setShowCopiedMessage(true)
+    // setTimeout(() => setShowCopiedMessage(false), 2000)
   }
 
-  const tabs = [
-    { id: 'business', name: 'Business Info', icon: Building },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'security', name: 'Security', icon: Shield },
-    { id: 'billing', name: 'Billing', icon: CreditCard }
-  ]
+  // const tabs = [
+  //   { id: 'business', name: 'Business Info', icon: Building },
+  //   { id: 'notifications', name: 'Notifications', icon: Bell },
+  //   { id: 'security', name: 'Security', icon: Shield },
+  //   { id: 'billing', name: 'Billing', icon: CreditCard }
+  // ]
 
-  if (isLoading) {
-    return (
-      <div className="py-6">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="flex items-center">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              <span className="text-gray-600">Loading settings...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // if (isLoading) {
+  //   return (
+  //     <div className="py-6">
+  //       <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8">
+  //         <div className="flex items-center justify-center h-64">
+  //           <div className="flex items-center">
+  //             <Loader2 className="h-6 w-6 animate-spin mr-2" />
+  //             <span className="text-gray-600">Loading settings...</span>
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
   return (
     <div className="py-6">
@@ -265,25 +263,25 @@ export default function SettingsPage() {
                 <h3 className="text-lg font-medium text-gray-900">Your Booking Page</h3>
                 <p className="mt-1 text-sm text-gray-500">Share this link with your clients to let them book appointments</p>
               </div>
-              <Link
+              {/* <Link
                 href={`/book/${user?.businessSlug}`}
                 target="_blank"
                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
-              </Link>
+              </Link> */}
             </div>
             <div className="mt-4 flex items-center space-x-2">
               <div className="flex-1 flex items-center px-3 py-2 bg-white rounded-md border border-gray-300">
-                <Globe className="h-4 w-4 text-gray-400 mr-2" />
-                <span className="text-gray-600">{window.location.origin}/book/{user?.businessSlug}</span>
+                {/* <Globe className="h-4 w-4 text-gray-400 mr-2" /> */}
+                <span className="text-gray-600">Booking URL will be displayed here</span>
               </div>
               <button
                 onClick={copyBookingUrl}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                {showCopiedMessage ? (
+                {/* {showCopiedMessage ? (
                   <>
                     <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
                     Copied!
@@ -293,14 +291,15 @@ export default function SettingsPage() {
                     <Clipboard className="h-4 w-4 mr-2" />
                     Copy
                   </>
-                )}
+                )} */}
+                Copy
               </button>
             </div>
           </div>
         </div>
 
         {/* Save Status */}
-        {saveStatus !== 'idle' && (
+        {/* {saveStatus !== 'idle' && (
           <div className={`mb-6 p-4 rounded-md ${
             saveStatus === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
           }`}>
@@ -322,12 +321,12 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-8">
           <nav className="-mb-px flex space-x-8">
-            {tabs.map((tab) => (
+            {settingsTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -362,8 +361,8 @@ export default function SettingsPage() {
                     Business Name
                   </label>
                   <div className="relative">
-                    <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <input
+                    {/* <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
+                    <Input
                       type="text"
                       value={businessSettings.businessName}
                       onChange={(e) => handleBusinessSettingsChange('businessName', e.target.value)}
@@ -378,8 +377,8 @@ export default function SettingsPage() {
                     Owner Name
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <input
+                    {/* <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
+                    <Input
                       type="text"
                       value={businessSettings.ownerName}
                       onChange={(e) => handleBusinessSettingsChange('ownerName', e.target.value)}
@@ -394,8 +393,8 @@ export default function SettingsPage() {
                     Email
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <input
+                    {/* <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
+                    <Input
                       type="email"
                       value={businessSettings.email}
                       onChange={(e) => handleBusinessSettingsChange('email', e.target.value)}
@@ -410,8 +409,8 @@ export default function SettingsPage() {
                     Phone
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <input
+                    {/* <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
+                    <Input
                       type="tel"
                       value={businessSettings.phone}
                       onChange={(e) => handleBusinessSettingsChange('phone', e.target.value)}
@@ -427,8 +426,8 @@ export default function SettingsPage() {
                   Address
                 </label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <input
+                  {/* <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
+                  <Input
                     type="text"
                     value={businessSettings.address}
                     onChange={(e) => handleBusinessSettingsChange('address', e.target.value)}
@@ -443,7 +442,7 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     City
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={businessSettings.city}
                     onChange={(e) => handleBusinessSettingsChange('city', e.target.value)}
@@ -456,7 +455,7 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     State
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={businessSettings.state}
                     onChange={(e) => handleBusinessSettingsChange('state', e.target.value)}
@@ -469,7 +468,7 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ZIP Code
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={businessSettings.zipCode}
                     onChange={(e) => handleBusinessSettingsChange('zipCode', e.target.value)}
@@ -484,8 +483,8 @@ export default function SettingsPage() {
                   Website
                 </label>
                 <div className="relative">
-                  <Globe className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <input
+                  {/* <Globe className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
+                  <Input
                     type="url"
                     value={businessSettings.website}
                     onChange={(e) => handleBusinessSettingsChange('website', e.target.value)}
@@ -514,7 +513,7 @@ export default function SettingsPage() {
                     Timezone
                   </label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    {/* <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
                     <select
                       value={businessSettings.timezone}
                       onChange={(e) => handleBusinessSettingsChange('timezone', e.target.value)}
@@ -534,7 +533,7 @@ export default function SettingsPage() {
                     Currency
                   </label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    {/* <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" /> */}
                     <select
                       value={businessSettings.currency}
                       onChange={(e) => handleBusinessSettingsChange('currency', e.target.value)}
@@ -551,19 +550,19 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <button
+                <Button
                   type="button"
                   onClick={() => handleSave('business')}
-                  disabled={isSaving}
+                  // disabled={isSaving}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSaving ? (
+                  {/* {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
                     <Save className="h-4 w-4 mr-2" />
-                  )}
+                  )} */}
                   Save Changes
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -582,7 +581,7 @@ export default function SettingsPage() {
             <div className="px-6 py-4 space-y-6">
               <div>
                 <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
-                  <Mail className="h-4 w-4 mr-2" />
+                  {/* <Mail className="h-4 w-4 mr-2" /> */}
                   Email Notifications
                 </h4>
                 <div className="space-y-3">
@@ -595,11 +594,9 @@ export default function SettingsPage() {
                   }).map(([key, label]) => (
                     <div key={key} className="flex items-center justify-between">
                       <span className="text-sm text-gray-700">{label}</span>
-                      <input
-                        type="checkbox"
+                      <Switch
                         checked={notificationSettings[key as keyof NotificationSettings] as boolean}
-                        onChange={(e) => handleNotificationChange(key as keyof NotificationSettings, e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        onCheckedChange={(checked) => handleNotificationChange(key as keyof NotificationSettings, checked)}
                       />
                     </div>
                   ))}
@@ -608,7 +605,7 @@ export default function SettingsPage() {
 
               <div>
                 <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
-                  <Smartphone className="h-4 w-4 mr-2" />
+                  {/* <Smartphone className="h-4 w-4 mr-2" /> */}
                   SMS Notifications
                 </h4>
                 <div className="space-y-3">
@@ -619,11 +616,9 @@ export default function SettingsPage() {
                   }).map(([key, label]) => (
                     <div key={key} className="flex items-center justify-between">
                       <span className="text-sm text-gray-700">{label}</span>
-                      <input
-                        type="checkbox"
+                      <Switch
                         checked={notificationSettings[key as keyof NotificationSettings] as boolean}
-                        onChange={(e) => handleNotificationChange(key as keyof NotificationSettings, e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        onCheckedChange={(checked) => handleNotificationChange(key as keyof NotificationSettings, checked)}
                       />
                     </div>
                   ))}
@@ -631,19 +626,19 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <button
+                <Button
                   type="button"
                   onClick={() => handleSave('notifications')}
-                  disabled={isSaving}
+                  // disabled={isSaving}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSaving ? (
+                  {/* {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
                     <Save className="h-4 w-4 mr-2" />
-                  )}
+                  )} */}
                   Save Preferences
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -666,18 +661,19 @@ export default function SettingsPage() {
                 </h4>
                 <div className="space-y-4 max-w-md">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-2">
                       Current Password
-                    </label>
+                    </Label>
                     <div className="relative">
-                      <input
-                        type={showPasswords.current ? 'text' : 'password'}
+                      <Input
+                        type="password"
+                        id="current-password"
                         value={passwordData.currentPassword}
                         onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
                         className="block w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter current password"
                       />
-                      <button
+                      {/* <button
                         type="button"
                         className="absolute inset-y-0 right-0 pr-3 flex items-center"
                         onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
@@ -687,23 +683,24 @@ export default function SettingsPage() {
                         ) : (
                           <Eye className="h-4 w-4 text-gray-400" />
                         )}
-                      </button>
+                      </button> */}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-2">
                       New Password
-                    </label>
+                    </Label>
                     <div className="relative">
-                      <input
-                        type={showPasswords.new ? 'text' : 'password'}
+                      <Input
+                        type="password"
+                        id="new-password"
                         value={passwordData.newPassword}
                         onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
                         className="block w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter new password"
                       />
-                      <button
+                      {/* <button
                         type="button"
                         className="absolute inset-y-0 right-0 pr-3 flex items-center"
                         onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
@@ -713,23 +710,24 @@ export default function SettingsPage() {
                         ) : (
                           <Eye className="h-4 w-4 text-gray-400" />
                         )}
-                      </button>
+                      </button> */}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Label htmlFor="confirm-new-password" className="block text-sm font-medium text-gray-700 mb-2">
                       Confirm New Password
-                    </label>
+                    </Label>
                     <div className="relative">
-                      <input
-                        type={showPasswords.confirm ? 'text' : 'password'}
+                      <Input
+                        type="password"
+                        id="confirm-new-password"
                         value={passwordData.confirmPassword}
                         onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
                         className="block w-full pr-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Confirm new password"
                       />
-                      <button
+                      {/* <button
                         type="button"
                         className="absolute inset-y-0 right-0 pr-3 flex items-center"
                         onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
@@ -739,7 +737,7 @@ export default function SettingsPage() {
                         ) : (
                           <Eye className="h-4 w-4 text-gray-400" />
                         )}
-                      </button>
+                      </button> */}
                     </div>
                     {passwordData.newPassword && passwordData.confirmPassword && 
                      passwordData.newPassword !== passwordData.confirmPassword && (
@@ -751,37 +749,37 @@ export default function SettingsPage() {
                     <h5 className="text-sm font-medium text-gray-900 mb-2">Password Requirements:</h5>
                     <ul className="text-sm text-gray-600 space-y-1">
                       <li className={`flex items-center ${passwordData.newPassword.length >= 8 ? 'text-green-600' : ''}`}>
-                        <CheckCircle className={`h-3 w-3 mr-2 ${passwordData.newPassword.length >= 8 ? 'text-green-500' : 'text-gray-300'}`} />
+                        {/* <CheckCircle className={`h-3 w-3 mr-2 ${passwordData.newPassword.length >= 8 ? 'text-green-500' : 'text-gray-300'}`} /> */}
                         At least 8 characters
                       </li>
                       <li className={`flex items-center ${/[A-Z]/.test(passwordData.newPassword) ? 'text-green-600' : ''}`}>
-                        <CheckCircle className={`h-3 w-3 mr-2 ${/[A-Z]/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} />
+                        {/* <CheckCircle className={`h-3 w-3 mr-2 ${/[A-Z]/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} /> */}
                         One uppercase letter
                       </li>
                       <li className={`flex items-center ${/[a-z]/.test(passwordData.newPassword) ? 'text-green-600' : ''}`}>
-                        <CheckCircle className={`h-3 w-3 mr-2 ${/[a-z]/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} />
+                        {/* <CheckCircle className={`h-3 w-3 mr-2 ${/[a-z]/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} /> */}
                         One lowercase letter
                       </li>
                       <li className={`flex items-center ${/\d/.test(passwordData.newPassword) ? 'text-green-600' : ''}`}>
-                        <CheckCircle className={`h-3 w-3 mr-2 ${/\d/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} />
+                        {/* <CheckCircle className={`h-3 w-3 mr-2 ${/\d/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} /> */}
                         One number
                       </li>
                     </ul>
                   </div>
 
-                  <button
+                  <Button
                     type="button"
                     onClick={() => handleSave('password')}
-                    disabled={isSaving || !validatePassword()}
+                    // disabled={isSaving || !validatePassword()}
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSaving ? (
+                    {/* {isSaving ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                       <Save className="h-4 w-4 mr-2" />
-                    )}
+                    )} */}
                     Update Password
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -791,7 +789,7 @@ export default function SettingsPage() {
                 </h4>
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                   <div className="flex">
-                    <Shield className="h-5 w-5 text-blue-400" />
+                    {/* <Shield className="h-5 w-5 text-blue-400" /> */}
                     <div className="ml-3">
                       <h5 className="text-sm font-medium text-blue-800">
                         Two-Factor Authentication
@@ -813,7 +811,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {activeTab === 'billing' && (
+        {/* {activeTab === 'billing' && (
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -964,7 +962,7 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   )

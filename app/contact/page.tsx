@@ -128,16 +128,15 @@ export default function ContactPage() {
                   <select
                     id="subject"
                     name="subject"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    defaultValue=""
                     required
                   >
-                    <option value="">Select a topic</option>
-                    <option value="general">General Question</option>
+                    <option value="">Select a subject</option>
+                    <option value="booking">Booking Issue</option>
                     <option value="technical">Technical Support</option>
-                    <option value="billing">Billing Question</option>
                     <option value="feature">Feature Request</option>
-                    <option value="bug">Report a Bug</option>
-                    <option value="partnership">Partnership Inquiry</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
                 
