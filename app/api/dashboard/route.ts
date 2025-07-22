@@ -2,9 +2,18 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import prisma from '@/lib/db'
 import { calculatePercentageChange } from '@/lib/util'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth-middleware'
 
-export async function GET() {
+export const GET = withAuth(async (request: AuthenticatedRequest) => {
   try {
+    const userId = request.user?.userId
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
     // Get the current date range
     const today = new Date()
     const startOfToday = new Date(today.setHours(0, 0, 0, 0))
@@ -24,6 +33,7 @@ export async function GET() {
       // Total appointments
       prisma.booking.count({
         where: {
+          providerId: userId,
           createdAt: {
             gte: startOfToday,
             lte: endOfToday
@@ -34,6 +44,7 @@ export async function GET() {
       // New clients (unique customers today)
       prisma.booking.findMany({
         where: {
+          providerId: userId,
           createdAt: {
             gte: startOfToday,
             lte: endOfToday
@@ -47,6 +58,9 @@ export async function GET() {
       // Revenue
       prisma.payment.aggregate({
         where: {
+          booking: {
+            providerId: userId
+          },
           createdAt: {
             gte: startOfToday,
             lte: endOfToday
@@ -61,6 +75,7 @@ export async function GET() {
       // Total booking slots vs booked slots for booking rate
       prisma.booking.count({
         where: {
+          providerId: userId,
           appointmentDate: {
             gte: startOfToday,
             lte: endOfToday
@@ -82,6 +97,7 @@ export async function GET() {
       // Previous period appointments
       prisma.booking.count({
         where: {
+          providerId: userId,
           createdAt: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -92,6 +108,7 @@ export async function GET() {
       // Previous period new clients
       prisma.booking.findMany({
         where: {
+          providerId: userId,
           createdAt: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -105,6 +122,9 @@ export async function GET() {
       // Previous period revenue
       prisma.payment.aggregate({
         where: {
+          booking: {
+            providerId: userId
+          },
           createdAt: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -119,6 +139,7 @@ export async function GET() {
       // Previous period booking rate
       prisma.booking.count({
         where: {
+          providerId: userId,
           appointmentDate: {
             gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
             lte: new Date(lastMonth.setHours(23, 59, 59, 999))
@@ -133,6 +154,9 @@ export async function GET() {
     // Calculate unique clients
     const currentNewClients = new Set(currentNewClientsResult.map((b: { customerEmail: any }) => b.customerEmail)).size
     const previousNewClients = new Set(previousNewClientsResult.map((b: { customerEmail: any }) => b.customerEmail)).size
+
+    const currentRevenueAmount = currentRevenue._sum?.amount || 0
+    const previousRevenueAmount = previousRevenue._sum?.amount || 0
 
     const stats = [
       {
@@ -151,12 +175,9 @@ export async function GET() {
       },
       {
         name: 'Revenue',
-        value: `$${(currentRevenue._sum.amount || 0).toFixed(2)}`,
-        change: calculatePercentageChange(
-          previousRevenue._sum.amount || 0,
-          currentRevenue._sum.amount || 0
-        ),
-        changeType: (currentRevenue._sum.amount || 0) >= (previousRevenue._sum.amount || 0) ? 'increase' : 'decrease',
+        value: `$${currentRevenueAmount.toFixed(2)}`,
+        change: calculatePercentageChange(previousRevenueAmount, currentRevenueAmount),
+        changeType: currentRevenueAmount >= previousRevenueAmount ? 'increase' : 'decrease',
         icon: 'DollarSign',
       },
       {
@@ -174,6 +195,7 @@ export async function GET() {
     // Fetch today's appointments
     const upcomingAppointments = await prisma.booking.findMany({
       where: {
+        providerId: userId,
         appointmentDate: {
           gte: startOfToday,
           lte: endOfToday
@@ -190,6 +212,7 @@ export async function GET() {
     // Fetch recent activity
     const recentActivity = await prisma.booking.findMany({
       where: {
+        providerId: userId,
         OR: [
           { status: 'CONFIRMED' },
           { status: 'CANCELLED' },
@@ -259,7 +282,7 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})
 
 // Helper function to format time ago
 function formatTimeAgo(date: Date) {
