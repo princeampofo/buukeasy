@@ -164,7 +164,7 @@ const AppointmentsPage = () => {
 
   if (loading) {
     return (
-      <div className="container py-6">
+      <div className="container px-6 py-6">
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="w-full h-[200px] animate-pulse bg-gray-100" />
@@ -176,7 +176,7 @@ const AppointmentsPage = () => {
 
   if (error) {
     return (
-      <div className="container py-6">
+      <div className="container px-6 py-6">
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive">Error loading appointments</CardTitle>
@@ -193,7 +193,7 @@ const AppointmentsPage = () => {
   }
 
   return (
-    <div className="container py-6">
+    <div className="container px-6 py-6">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

@@ -125,7 +125,7 @@ export default function ServicesPage() {
 
   if (isLoading) {
     return (
-      <div className="container py-6">
+      <div className="container px-6 py-6">
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="w-full h-[200px] animate-pulse bg-gray-100" />
@@ -137,7 +137,7 @@ export default function ServicesPage() {
 
   if (error) {
     return (
-      <div className="container py-6">
+      <div className="container px-6 py-6">
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="text-red-800">Error loading services</CardTitle>
@@ -149,7 +149,7 @@ export default function ServicesPage() {
   }
 
   return (
-    <div className="container py-6">
+    <div className="container px-6 py-6">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
