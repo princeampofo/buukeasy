@@ -33,7 +33,6 @@ const getIconComponent = (iconName: string) => {
 }
 
 // Replace the mock data section with:
-// Replace the mock data section with:
 interface DashboardData {
   stats: Array<{
     name: string
@@ -60,10 +59,18 @@ interface DashboardData {
   }>
 }
 
+// Helper function to get local date string in YYYY-MM-DD format
+const getLocalDateString = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function DashboardPage() {
   // Get user data from auth context
   const { user } = useAuthContext()
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()))
   // Add state and useEffect in the component:
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -71,7 +78,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [selectedDate])
 
   const fetchDashboardData = async () => {
     try {
