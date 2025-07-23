@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { withAuth } from '@/lib/auth-middleware'
 import type { UserData } from '@/types/auth'
+import { use } from 'react'
 
 export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
   try {
@@ -14,10 +15,22 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
       )
     }
 
-    // Get entrepreneur profile using userId
-    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
-      where: { userId: userId }
+    // Get the user and include the entrepreneur profile
+    const userDataFromDB = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        entrepreneurProfile: true
+      }
     })
+
+    if (!userDataFromDB) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    const entrepreneurProfile = userDataFromDB.entrepreneurProfile
 
     if (!entrepreneurProfile) {
       return NextResponse.json(
@@ -29,6 +42,9 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
     // Format response
     const businessSettings = {
       businessName: entrepreneurProfile?.businessName || '',
+      ownerName: userDataFromDB.firstName + ' ' + userDataFromDB.lastName,
+      email: userDataFromDB.email,
+      phone: userDataFromDB.phone || '',
       slug: entrepreneurProfile?.slug || '',
       description: entrepreneurProfile?.description || '',
       address: entrepreneurProfile?.address || '',
@@ -39,7 +55,6 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
       currency: entrepreneurProfile?.currency || 'USD'
     }
 
-    console.log('Business Settings:', businessSettings)
     return NextResponse.json(businessSettings)
   } catch (error) {
     console.error('Business Settings API Error:', error)

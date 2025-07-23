@@ -31,6 +31,7 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       where: { entrepreneurId: entrepreneurProfile.id }
     })
 
+    console.log('Notification Settings:', settings)
     if (!settings) {
       // Return default settings if none exist
       return NextResponse.json({
@@ -79,7 +80,7 @@ export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
     }
     
     const data = await request.json()
-
+    console.log('Notification Settings Data:', data)
     // Update or create notification settings
     const settings = await prisma.notificationSettings.upsert({
       where: {
@@ -107,6 +108,8 @@ export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
         weeklyReports: data.weeklyReports ?? true
       }
     })
+
+    console.log('Updated Notification Settings:', settings)
 
     return NextResponse.json(settings)
   } catch (error) {
