@@ -155,7 +155,7 @@ export default function DashboardLayout({
                       <User className="h-5 w-5 text-blue-600" />
                     </div>
                     <span className="ml-2 text-gray-700 font-medium hidden sm:block">
-                      {user.firstName} {user.lastName}
+                      {user.firstName}
                     </span>
                     <ChevronDown className="ml-1 h-4 w-4 text-gray-400 hidden sm:block" />
                   </button>

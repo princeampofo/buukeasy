@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-
-export interface UserData {
-  userId: string
-  email: string
-  businessName: string
-}
+import type { UserData } from '@/types/auth'
 
 // Helper function to extract and verify user from request
 export async function getUserFromRequest(request: NextRequest): Promise<UserData | null> {

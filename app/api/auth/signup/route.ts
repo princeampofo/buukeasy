@@ -74,13 +74,14 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, saltRounds)
 
     // Create new user and entrepreneur profile in a transaction
-    const result = await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use'>) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Create user
       const user = await tx.user.create({
         data: {
+          firstName: firstName,
+          lastName: lastName,
           email: email.toLowerCase(),
           password: hashedPassword,
-          name: `${firstName} ${lastName}`,
           role: 'ENTREPRENEUR',
           isVerified: false,
         },
@@ -130,15 +131,13 @@ export async function POST(request: NextRequest) {
       { expiresIn: '7d' }
     )
 
-    // Split name into first and last name
-    const [firstName = '', lastName = ''] = result.user.name.split(' ', 2)
 
     // Create standardized user data
     const userData = {
       id: result.user.id,
+      firstName: result.user.firstName,
+      lastName: result.user.lastName,
       email: result.user.email,
-      firstName,
-      lastName,
       role: result.user.role,
       isVerified: result.user.isVerified,
       businessName: result.profile.businessName,

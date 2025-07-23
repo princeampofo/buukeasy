@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import prisma from '@/lib/db'
 import { getUserFromRequest } from '@/lib/auth-middleware'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Get the authenticated user
     const user = await getUserFromRequest(request)
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Get the authenticated user
     const user = await getUserFromRequest(request)

@@ -36,15 +36,13 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Split name into first and last name
-    const [firstName = '', lastName = ''] = user.name.split(' ', 2)
 
     // Return standardized user data
     const userData = {
       id: user.id,
       email: user.email,
-      firstName,
-      lastName,
+      firstName: user.firstName,
+      lastName: user.lastName,
       role: user.role,
       isVerified: user.isVerified,
       businessName: user.entrepreneurProfile?.businessName || null,

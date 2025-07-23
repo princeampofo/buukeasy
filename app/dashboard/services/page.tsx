@@ -6,7 +6,6 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { 
   Plus, 
   Search, 
-  Trash2, 
   Clock, 
   DollarSign,
   Users,

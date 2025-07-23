@@ -9,10 +9,7 @@ import {
   ArrowLeft,
   Clock,
   DollarSign,
-  Tag,
-  FileText,
   AlertCircle,
-  CheckCircle,
   Upload,
   X
 } from 'lucide-react'

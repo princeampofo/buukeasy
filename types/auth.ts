@@ -43,4 +43,33 @@ export interface User {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  trialEndsAt?: string
+}
+
+export interface AuthContextType {
+  user: User | null
+  loading: boolean
+  isAuthenticated: boolean
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean> // Updated signature
+  signup: (userData: SignupData) => Promise<boolean>
+  logout: () => Promise<void>
+  refetch: () => Promise<void>
+  error: string | null
+}
+
+export interface UseAuthReturn {
+  user: User | null
+  loading: boolean
+  isAuthenticated: boolean
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>
+  signup: (userData: SignupData) => Promise<boolean>
+  logout: () => Promise<void>
+  refetch: () => Promise<void>
+  error: string | null
+}
+
+export interface UserData {
+  userId: string
+  email: string
+  businessName: string
 }

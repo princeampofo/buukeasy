@@ -50,9 +50,6 @@ export async function POST(request: NextRequest) {
       ? 60 * 60 * 24 * 7  // 7 days in seconds
       : 60 * 60 * 24 // 1 day in seconds
 
-    // Split name into first and last name
-    const [firstName = '', lastName = ''] = user.name.split(' ', 2)
-
     // Generate JWT token
     const token = jwt.sign(
       { 
@@ -68,8 +65,8 @@ export async function POST(request: NextRequest) {
     const userData = {
       id: user.id,
       email: user.email,
-      firstName,
-      lastName,
+      firstName: user.firstName,
+      lastName: user.lastName,
       role: user.role,
       isVerified: user.isVerified,
       businessName: user.entrepreneurProfile?.businessName || null,

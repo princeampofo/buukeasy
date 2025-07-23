@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { ServiceCategory } from '@prisma/client'
 import { getUserFromRequest } from '@/lib/auth-middleware'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Get the authenticated user
     const user = await getUserFromRequest(request)
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Get the authenticated user
     const user = await getUserFromRequest(request)
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       data: {
         entrepreneurId: entrepreneurProfile.id,
         name: formData.get('name') as string,
-        category: formData.get('category') as string,
+        category: formData.get('category') as ServiceCategory,
         description: formData.get('description') as string,
         duration: parseInt(formData.get('duration') as string),
         price: parseFloat(formData.get('price') as string),

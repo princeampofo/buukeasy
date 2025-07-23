@@ -1,31 +1,20 @@
 'use client'
 
-import * as React from 'react'
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   Calendar as CalendarIcon, 
   Search, 
-  Filter, 
-  Plus, 
   Clock, 
-  User, 
   Phone, 
   Mail, 
-  MapPin,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Edit3,
   MoreVertical,
-  Edit,
-  Trash2,
-  MessageSquare,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
 
-import { cn } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -63,26 +52,40 @@ const statusConfig = {
   completed: { variant: 'default' as const, icon: CheckCircle },
 } as const
 
-const AppointmentsPage = () => {
-  const [appointments, setAppointments] = React.useState<Appointment[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = React.useState('')
-  const [selectedStatus, setSelectedStatus] = React.useState('all')
-  const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split('T')[0])
-  const [currentWeek, setCurrentWeek] = React.useState(new Date())
-  const [viewMode, setViewMode] = React.useState<'list' | 'calendar'>('list')
-  const [openDropdown, setOpenDropdown] = React.useState<number | null>(null)
-  const [confirmDialog, setConfirmDialog] = React.useState<{ type: 'complete' | 'cancel', id: number } | null>(null)
+// Helper function to get local date string in YYYY-MM-DD format
+const getLocalDateString = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
-  const fetchAppointments = async () => {
+// Helper function to create a Date object from YYYY-MM-DD string without timezone issues
+const createDateFromString = (dateString: string) => {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+const AppointmentsPage = () => {
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [activeSearchTerm, setActiveSearchTerm] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()))
+  const [currentWeek, setCurrentWeek] = useState(new Date())
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [confirmDialog, setConfirmDialog] = useState<{ type: 'complete' | 'cancel', id: number } | null>(null)
+
+  const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
       
       if (selectedStatus !== 'all') params.append('status', selectedStatus)
       if (selectedDate) params.append('date', selectedDate)
-      if (searchTerm) params.append('search', searchTerm)
+      if (activeSearchTerm) params.append('search', activeSearchTerm)
 
       const response = await fetch(`/api/dashboard/appointments?${params.toString()}`)
       
@@ -99,11 +102,26 @@ const AppointmentsPage = () => {
     } finally {
       setLoading(false)
     }
+  }, [selectedStatus, selectedDate, activeSearchTerm])
+
+  const handleSearch = () => {
+    setActiveSearchTerm(searchTerm)
+  }
+
+  const handleClearSearch = () => {
+    setSearchTerm('')
+    setActiveSearchTerm('')
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch()
+    }
   }
 
   useEffect(() => {
     fetchAppointments()
-  }, [selectedStatus, selectedDate, searchTerm])
+  }, [fetchAppointments])
 
   const handleMarkComplete = async (id: number) => {
     try {
@@ -224,15 +242,31 @@ const AppointmentsPage = () => {
         {/* Filters */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div className="sm:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search appointments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search appointments..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="pl-9"
+                />
+              </div>
+              <Button onClick={handleSearch} variant="default">
+                Search
+              </Button>
+              {activeSearchTerm && (
+                <Button onClick={handleClearSearch} variant="outline">
+                  Clear
+                </Button>
+              )}
             </div>
+            {activeSearchTerm && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Searching for: "{activeSearchTerm}"
+              </p>
+            )}
           </div>
 
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -255,15 +289,17 @@ const AppointmentsPage = () => {
                 className="w-full justify-start text-left font-normal"
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? new Date(selectedDate).toLocaleDateString() : "Pick a date"}
+                {selectedDate ? 
+                  createDateFromString(selectedDate).toLocaleDateString() : 
+                  "Pick a date"
+                }
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                selected={new Date(selectedDate)}
-                onSelect={(date) => date && setSelectedDate(date.toISOString().split('T')[0])}
-                initialFocus
+                selected={createDateFromString(selectedDate)}
+                onSelect={(date) => date && setSelectedDate(getLocalDateString(date))}
               />
             </PopoverContent>
           </Popover>
@@ -407,7 +443,7 @@ const AppointmentsPage = () => {
                     </div>
                     <div className="space-y-1">
                       {appointments
-                        .filter(apt => apt.date === weekDays[index].toISOString().split('T')[0])
+                        .filter(apt => apt.date === getLocalDateString(weekDays[index]))
                         .map(appointment => (
                           <div
                             key={appointment.id}

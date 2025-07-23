@@ -23,7 +23,7 @@ export default function LoginPage() {
     if (!loading && isAuthenticated) {
       router.push('/dashboard')
     }
-  }, [isAuthenticated, loading, router])
+  }, [isAuthenticated, loading])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target

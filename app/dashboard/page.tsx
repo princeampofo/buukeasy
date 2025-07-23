@@ -16,7 +16,6 @@ import {
   XCircle,
   AlertCircle
 } from 'lucide-react'
-import { Concert_One } from 'next/font/google'
 
 // Add icon mapping helper:
 const getIconComponent = (iconName: string) => {

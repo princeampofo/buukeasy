@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getUserFromRequest } from '@/lib/auth-middleware'
 
@@ -29,13 +29,13 @@ const calculateChange = (current: number, previous: number): { change: string; c
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const period = parseInt(searchParams.get('period') || '30')
 
     // Get the authenticated user
-    const user = await getUserFromRequest(request as any)
+    const user = await getUserFromRequest(request)
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
 
     // Base where clause for all queries
     const baseWhereClause = {
-      providerId: user.userId  // Fixed: Use user.userId instead of entrepreneurProfile.id
+      entrepreneurId: entrepreneurProfile.id,
     }
 
     // Fetch current period data

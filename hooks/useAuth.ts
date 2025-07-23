@@ -3,42 +3,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-
-interface User {
-  id: string
-  email: string
-  firstName: string
-  lastName: string
-  role: string
-  isVerified: boolean
-  businessName: string | null
-  businessSlug: string | null
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-interface UseAuthReturn {
-  user: User | null
-  loading: boolean
-  isAuthenticated: boolean
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>
-  signup: (userData: SignupData) => Promise<boolean>
-  logout: () => Promise<void>
-  refetch: () => Promise<void>
-  error: string | null
-}
-
-interface SignupData {
-  firstName: string
-  lastName: string
-  email: string
-  businessName: string
-  password: string
-}
+import type { User, UseAuthReturn, SignupData } from '@/types/auth'
 
 // Define which routes require authentication
-const PROTECTED_ROUTES = ['/admin']
+const PROTECTED_ROUTES = ['/dashboard']
 
 export const useAuth = (): UseAuthReturn => {
   const [user, setUser] = useState<User | null>(null)
@@ -48,6 +16,11 @@ export const useAuth = (): UseAuthReturn => {
   const router = useRouter()
   const pathname = usePathname()
 
+  // Clear error when pathname changes (route navigation)
+  useEffect(() => {
+    setError(null)
+  }, [pathname])
+
   // Check if current route requires authentication
   const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route))
 
@@ -56,12 +29,13 @@ export const useAuth = (): UseAuthReturn => {
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
       })
-      
+      console.log('Checking auth status...')
       if (response.ok) {
         const data = await response.json()
         setUser(data.user)
         setIsAuthenticated(true)
       } else {
+        console.log('User not authenticated')
         setUser(null)
         setIsAuthenticated(false)
       }

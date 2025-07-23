@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     const whereClause: any = {
-      providerId: entrepreneurProfile.id
+      entrepreneurId: entrepreneurProfile.id
     }
 
     // Apply filters
