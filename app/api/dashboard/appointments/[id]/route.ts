@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { withAuth } from '@/lib/auth-middleware'
+import { UserData } from '@/types/auth' 
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export const GET = withAuth(async (request: NextRequest, user: UserData) => {
   try {
+    const userId = user.userId
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+    const { pathname } = new URL(request.url)
+    const appointmentId = pathname.split('/').pop()
     const body = await request.json()
     const { status, modificationNote } = body
 
     const appointment = await prisma.booking.update({
-      where: { id: params.id },
+      where: { id: appointmentId },
       data: {
         status: status.toUpperCase(),
         ...(status === 'confirmed' && { confirmedAt: new Date() }),
@@ -22,7 +30,6 @@ export async function PATCH(
         })
       },
       include: {
-        customer: true,
         service: true
       }
     })
@@ -35,4 +42,4 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
+})

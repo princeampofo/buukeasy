@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { ServiceCategory } from '@prisma/client'
-import { getUserFromRequest } from '@/lib/auth-middleware'
+import { withAuth } from '@/lib/auth-middleware'
+import type { UserData } from '@/types/auth'
 
-export async function GET(request: NextRequest) {
+
+export const GET = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    // Get user id from user data
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
       )
     }
 
     // Get the entrepreneur profile
     const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
-      where: { userId: user.userId }
+      where: { userId: userId }
     })
 
     if (!entrepreneurProfile) {
@@ -42,22 +44,22 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    // Get user id from user data
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
       )
     }
 
     // Get the entrepreneur profile
     const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
-      where: { userId: user.userId }
+      where: { userId: userId }
     })
 
     if (!entrepreneurProfile) {
@@ -94,5 +96,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 

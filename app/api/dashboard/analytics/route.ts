@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { getUserFromRequest } from '@/lib/auth-middleware'
+import { withAuth } from '@/lib/auth-middleware'
+import { UserData } from '@/types/auth'
 
 // Helper function to calculate progress width
 const calculateProgressWidth = (value: number, maxValue: number): string => {
@@ -29,23 +30,23 @@ const calculateChange = (current: number, previous: number): { change: string; c
   }
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest, user: UserData) => {
   try {
     const { searchParams } = new URL(request.url)
     const period = parseInt(searchParams.get('period') || '30')
 
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    // Get user ID from user data
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'User not found' },
+        { status: 404 }
       )
     }
 
     // Get the entrepreneur profile
     const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
-      where: { userId: user.userId }
+      where: { userId: userId }
     })
 
     if (!entrepreneurProfile) {
@@ -397,4 +398,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

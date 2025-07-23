@@ -1,46 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { getUserFromRequest } from '@/lib/auth-middleware'
+import { withAuth } from '@/lib/auth-middleware'
+import type { UserData } from '@/types/auth'
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
   try {
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    // Get user with entrepreneur profile
-    const userData = await prisma.user.findUnique({
-      where: { id: user.userId },
-      include: {
-        entrepreneurProfile: true
-      }
-    })
-
-    if (!userData) {
+    // Get user id from user data
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
         { status: 404 }
       )
     }
 
-    // Format response
-    const businessSettings = {
-      businessName: userData.entrepreneurProfile?.businessName || '',
-      slug: userData.entrepreneurProfile?.slug || '',
-      description: userData.entrepreneurProfile?.description || '',
-      address: userData.entrepreneurProfile?.address || '',
-      city: userData.entrepreneurProfile?.city || '',
-      state: userData.entrepreneurProfile?.state || '',
-      zipCode: userData.entrepreneurProfile?.zipCode || '',
-      timezone: userData.entrepreneurProfile?.timezone || 'Eastern Time',
-      currency: userData.entrepreneurProfile?.currency || 'USD'
+    // Get entrepreneur profile using userId
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
     }
 
+    // Format response
+    const businessSettings = {
+      businessName: entrepreneurProfile?.businessName || '',
+      slug: entrepreneurProfile?.slug || '',
+      description: entrepreneurProfile?.description || '',
+      address: entrepreneurProfile?.address || '',
+      city: entrepreneurProfile?.city || '',
+      state: entrepreneurProfile?.state || '',
+      zipCode: entrepreneurProfile?.zipCode || '',
+      timezone: entrepreneurProfile?.timezone || 'Eastern Time',
+      currency: entrepreneurProfile?.currency || 'USD'
+    }
+
+    console.log('Business Settings:', businessSettings)
     return NextResponse.json(businessSettings)
   } catch (error) {
     console.error('Business Settings API Error:', error)
@@ -49,25 +48,26 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
-export async function PUT(request: NextRequest) {
+export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    // Get user id from user data
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
       )
     }
+
 
     const data = await request.json()
 
     // Update or create entrepreneur profile
     const updatedProfile = await prisma.entrepreneurProfile.upsert({
       where: {
-        userId: user.userId
+        userId: userId
       },
       update: {
         businessName: data.businessName,
@@ -102,4 +102,4 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

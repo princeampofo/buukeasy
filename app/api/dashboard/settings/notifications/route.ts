@@ -1,21 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { getUserFromRequest } from '@/lib/auth-middleware'
+import { withAuth } from '@/lib/auth-middleware'
+import type { UserData } from '@/types/auth'
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest, user: UserData) => {
   try {
     // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // find the related entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
       )
     }
 
     // Get notification settings
-    const settings = await prisma.notificationSettings.findUnique({
-      where: { userId: user.userId }
+    const settings = await prisma.notificationSettings.findFirst({
+      where: { entrepreneurId: entrepreneurProfile.id }
     })
 
     if (!settings) {
@@ -40,25 +53,37 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
-export async function PUT(request: NextRequest) {
+export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    // Get user id from user data
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
       )
     }
 
+    // get entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: userId }
+    })
+    
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+    
     const data = await request.json()
 
     // Update or create notification settings
     const settings = await prisma.notificationSettings.upsert({
       where: {
-        userId: user.userId
+        entrepreneurId: entrepreneurProfile?.id
       },
       update: {
         emailBookings: data.emailBookings,
@@ -71,7 +96,7 @@ export async function PUT(request: NextRequest) {
         weeklyReports: data.weeklyReports
       },
       create: {
-        userId: user.userId,
+        entrepreneurId: entrepreneurProfile?.id,
         emailBookings: data.emailBookings ?? true,
         emailCancellations: data.emailCancellations ?? true,
         emailReminders: data.emailReminders ?? true,
@@ -91,4 +116,4 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

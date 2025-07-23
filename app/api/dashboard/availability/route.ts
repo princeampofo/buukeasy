@@ -1,21 +1,52 @@
 import { NextResponse, NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { getUserFromRequest } from '@/lib/auth-middleware'
+import { UserData } from '@/types/auth'
+import { withAuth } from '@/lib/auth-middleware'
 
-export async function GET(request: NextRequest) {
+type DayName = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
+
+type DayData = {
+  enabled: boolean
+  slots: { start: string; end: string }[]
+}
+
+// Single source of truth for day mappings
+const dayMap: Record<DayName, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6
+}
+
+const numberToDay: Record<number, DayName> = {
+  0: 'sunday',
+  1: 'monday',
+  2: 'tuesday',
+  3: 'wednesday',
+  4: 'thursday',
+  5: 'friday',
+  6: 'saturday'
+}
+
+type Schedule = {
+  [key in DayName]: { enabled: boolean; slots: { start: string; end: string }[] }
+}
+
+export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
   try {
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
       )
     }
 
-    // Get the entrepreneur profile
     const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
-      where: { userId: user.userId }
+      where: { userId }
     })
 
     if (!entrepreneurProfile) {
@@ -25,7 +56,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get all time slots for the entrepreneur
     const timeSlots = await prisma.timeSlot.findMany({
       where: { entrepreneurId: entrepreneurProfile.id },
       orderBy: [
@@ -34,43 +64,51 @@ export async function GET(request: NextRequest) {
       ]
     })
 
-    // Format the time slots by day
-    const availabilityByDay = Array.from({ length: 7 }, (_, i) => ({
-      dayOfWeek: i,
-      slots: timeSlots
-        .filter(slot => slot.dayOfWeek === i)
-        .map(slot => ({
-          id: slot.id,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          isActive: slot.isActive
-        }))
-    }))
+    // Initialize empty schedule
+    const schedule: Schedule = {
+      monday: { enabled: false, slots: [] },
+      tuesday: { enabled: false, slots: [] },
+      wednesday: { enabled: false, slots: [] },
+      thursday: { enabled: false, slots: [] },
+      friday: { enabled: false, slots: [] },
+      saturday: { enabled: false, slots: [] },
+      sunday: { enabled: false, slots: [] }
+    }
 
-    return NextResponse.json(availabilityByDay)
+    // Group slots by day
+    timeSlots.forEach(slot => {
+      const dayName = numberToDay[slot.dayOfWeek]
+      if (dayName) {
+        schedule[dayName].enabled = true
+        schedule[dayName].slots.push({
+          start: slot.startTime,
+          end: slot.endTime
+        })
+      }
+    })
+
+    return NextResponse.json({ success: true, data: schedule })
   } catch (error) {
-    console.error('Availability API Error:', error)
+    console.error('Error fetching availability data:', error)
     return NextResponse.json(
       { error: 'Failed to fetch availability' },
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    // Get the authenticated user
-    const user = await getUserFromRequest(request)
-    if (!user) {
+    const userId = user.userId
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User not found' },
+        { status: 404 }
       )
     }
 
-    // Get the entrepreneur profile
     const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
-      where: { userId: user.userId }
+      where: { userId }
     })
 
     if (!entrepreneurProfile) {
@@ -83,30 +121,35 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { availabilityData } = body
 
-    // Delete existing slots for this entrepreneur
+    // Delete existing slots
     await prisma.timeSlot.deleteMany({
       where: { entrepreneurId: entrepreneurProfile.id }
     })
 
-    // Create new time slots
-    const timeSlots = await Promise.all(
-      availabilityData.flatMap(async (day: any) => {
-        return day.slots.map((slot: any) => ({
-          entrepreneurId: entrepreneurProfile.id,
-          dayOfWeek: day.dayOfWeek,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          isActive: true
-        }))
+    // Create new slots
+    const slotsToCreate = []
+    for (const [dayName, dayData] of Object.entries(availabilityData) as [string, DayData][]) {
+      const dayNumber = dayMap[dayName as DayName]
+      if (dayNumber !== undefined && dayData.enabled && Array.isArray(dayData.slots)) {
+        for (const slot of dayData.slots) {
+          slotsToCreate.push({
+            entrepreneurId: entrepreneurProfile.id,
+            dayOfWeek: dayNumber,
+            startTime: slot.start,
+            endTime: slot.end,
+            isActive: true
+          })
+        }
+      }
+    }
+
+    if (slotsToCreate.length > 0) {
+      await prisma.timeSlot.createMany({
+        data: slotsToCreate
       })
-    )
+    }
 
-    // Bulk create all time slots
-    await prisma.timeSlot.createMany({
-      data: timeSlots.flat()
-    })
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: 'Availability updated' })
   } catch (error) {
     console.error('Update Availability API Error:', error)
     return NextResponse.json(
@@ -114,4 +157,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

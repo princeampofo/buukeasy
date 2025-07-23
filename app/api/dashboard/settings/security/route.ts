@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import bcrypt from 'bcryptjs'
-import { getUserFromRequest } from '@/lib/auth-middleware'
+import { withAuth } from '@/lib/auth-middleware'
+import type { UserData } from '@/types/auth'
 
-export async function PUT(request: NextRequest) {
-    try {
 
-      // Get the authenticated user
-      const user = await getUserFromRequest(request)
-      if (!user) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized' },
-          { status: 401 }
-        )
-      }
-
+export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
+  try {
       const userId = user.userId
       if (!userId) {
         return NextResponse.json(
@@ -84,5 +76,5 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       )
     }
-  }
+  })
 

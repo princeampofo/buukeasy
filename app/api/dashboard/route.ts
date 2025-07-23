@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { headers } from 'next/headers'
 import prisma from '@/lib/db'
 import { calculatePercentageChange } from '@/lib/util'
-import { withAuth, } from '@/lib/auth-middleware'
+import { withAuth } from '@/lib/auth-middleware'
 import type { UserData } from '@/types/auth'
 
-export const GET = withAuth(async (request: NextRequest, user: UserData) => {
+export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
   try {
     const userId = user.userId
     if (!userId) {
