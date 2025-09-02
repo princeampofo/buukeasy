@@ -1,8 +1,9 @@
+// app/api/dashboard/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { calculatePercentageChange } from '@/lib/util'
 import { withAuth } from '@/lib/auth-middleware'
 import type { UserData } from '@/types/auth'
+import { DateTime } from 'luxon'
 
 export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
   try {
@@ -28,265 +29,302 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
 
     const entrepreneurId = entrepreneurProfile.id
 
-    // Get the current date range
-    const today = new Date()
-    const startOfToday = new Date(today.setHours(0, 0, 0, 0))
-    const endOfToday = new Date(today.setHours(23, 59, 59, 999))
+    // Get date ranges
+    const today = DateTime.now().setZone(entrepreneurProfile.timezone)
+    const startOfToday = today.startOf('day')
+    const endOfToday = today.endOf('day')
+
+    // Get start of current week (Sunday)
+    const startOfWeek = today.minus({ days: today.weekday % 7 }).startOf('day');
+    const endOfWeek = startOfWeek.plus({ days: 6 }).endOf('day');
     
-    // Get the previous period for comparison (last month)
-    const lastMonth = new Date()
-    lastMonth.setMonth(lastMonth.getMonth() - 1)
-    
-    // Fetch current period stats
-    const [
-      currentAppointments,
-      currentNewClientsResult,
-      currentRevenue,
-      currentBookings
-    ] = await Promise.all([
-      // Total appointments
-      prisma.booking.count({
-        where: {
-          entrepreneurId: entrepreneurId,
-          createdAt: {
-            gte: startOfToday,
-            lte: endOfToday
-          }
-        }
-      }),
-      
-      // New clients (unique customers today)
-      prisma.booking.findMany({
-        where: {
-          entrepreneurId: entrepreneurId,
-          createdAt: {
-            gte: startOfToday,
-            lte: endOfToday
-          }
-        },
-        select: {
-          customerEmail: true
-        }
-      }),
-      
-      // Revenue
-      prisma.payment.aggregate({
-        where: {
-          entrepreneurId: entrepreneurId,
-          createdAt: {
-            gte: startOfToday,
-            lte: endOfToday
-          },
-          status: 'PAID'
-        },
-        _sum: {
-          amount: true
-        }
-      }),
-      
-      // Total booking slots vs booked slots for booking rate
-      prisma.booking.count({
-        where: {
-          entrepreneurId: entrepreneurId,
-          appointmentDate: {
-            gte: startOfToday,
-            lte: endOfToday
-          },
-          status: {
-            in: ['CONFIRMED', 'COMPLETED']
-          }
-        }
-      })
-    ])
+    // Get start and end of current month
+    const startOfMonth = today.startOf('month')
+    const endOfMonth = today.endOf('month')
 
-    // Fetch previous period stats
-    const [
-      previousAppointments,
-      previousNewClientsResult,
-      previousRevenue,
-      previousBookings
-    ] = await Promise.all([
-      // Previous period appointments
-      prisma.booking.count({
-        where: {
-          entrepreneurId: entrepreneurId,
-          createdAt: {
-            gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
-            lte: new Date(lastMonth.setHours(23, 59, 59, 999))
-          }
-        }
-      }),
-      
-      // Previous period new clients
-      prisma.booking.findMany({
-        where: {
-          entrepreneurId: entrepreneurId,
-          createdAt: {
-            gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
-            lte: new Date(lastMonth.setHours(23, 59, 59, 999))
-          }
-        },
-        select: {
-          customerEmail: true
-        }
-      }),
-      
-      // Previous period revenue
-      prisma.payment.aggregate({
-        where: {
-          entrepreneurId: entrepreneurId,
-          createdAt: {
-            gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
-            lte: new Date(lastMonth.setHours(23, 59, 59, 999))
-          },
-          status: 'PAID'
-        },
-        _sum: {
-          amount: true
-        }
-      }),
-      
-      // Previous period booking rate
-      prisma.booking.count({
-        where: {
-          entrepreneurId: entrepreneurId,
-          appointmentDate: {
-            gte: new Date(lastMonth.setHours(0, 0, 0, 0)),
-            lte: new Date(lastMonth.setHours(23, 59, 59, 999))
-          },
-          status: {
-            in: ['CONFIRMED', 'COMPLETED']
-          }
-        }
-      })
-    ])
+    // Current time for next appointment
+    const now = DateTime.now().setZone(entrepreneurProfile.timezone)
 
-    // Calculate unique clients
-    const currentNewClients = new Set(currentNewClientsResult.map((b: { customerEmail: any }) => b.customerEmail)).size
-    const previousNewClients = new Set(previousNewClientsResult.map((b: { customerEmail: any }) => b.customerEmail)).size
+    // 1. Monthly Estimated Revenue (from completed payments for bookings in current month)
+    const monthlyBookingsWithPayments = await prisma.booking.findMany({
+      where: {
+        entrepreneurId: entrepreneurId,
+        appointmentDate: {
+          gte: startOfMonth.toISODate(),
+          lte: endOfMonth.toISODate()
+        },
+        status: {
+          in: ['CONFIRMED', 'COMPLETED']
+        }
+      },
+      include: {
+        payment: {
+          where: {
+            status: 'COMPLETED'
+          }
+        }
+      }
+    })
 
-    const currentRevenueAmount = currentRevenue._sum?.amount || 0
-    const previousRevenueAmount = previousRevenue._sum?.amount || 0
+    let monthlyRevenue = 0
+
+    for (const booking of monthlyBookingsWithPayments) {
+      if (booking.payment) {
+        monthlyRevenue += booking.payment.netAmount || 0
+      }
+    }
+
+
+    // 2. This Week's Bookings Count (using appointment date)
+    const thisWeekBookings = await prisma.booking.count({
+      where: {
+        entrepreneurId: entrepreneurId,
+        appointmentDate: {
+          gte: startOfWeek,
+          lte: endOfWeek
+        },
+        status: {
+          in: ['CONFIRMED', 'COMPLETED', 'NO_SHOW']
+        }
+      }
+    })
+
+    // 3. Today's Bookings Count (using appointment date)
+    const todaysBookings = await prisma.booking.count({
+      where: {
+        entrepreneurId: entrepreneurId,
+        appointmentDate: startOfToday.toISODate(),
+        status: {
+          in: ['CONFIRMED', 'COMPLETED']
+        }
+      }
+    })
+
+    // 4. Next Upcoming Appointment
+    const nextAppointment = await prisma.booking.findFirst({
+      where: {
+        entrepreneurId: entrepreneurId,
+        appointmentDate: {
+          gte: now.toISODate()
+        },
+        status: {
+          in: ['CONFIRMED']
+        }
+      },
+      include: {
+        service: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        { appointmentDate: 'asc' },
+        { appointmentTime: 'asc' }
+      ]
+    })
+
+
+  // Calculate next appointment display value
+  const getNextAppointmentValue = () => {
+    if (!nextAppointment) return 'None scheduled';
+
+    const datePart = nextAppointment.appointmentDate;
+
+    // time is already in 24-hour format
+    const timeStr = nextAppointment.appointmentTime.trim();
+    const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+
+    if (!timeMatch) return 'Invalid time format';
+
+    let [hoursStr, minutesStr ] = timeMatch;
+    let hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+
+
+    const appointmentDateTime = DateTime.fromISO(`${datePart}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`, { zone: entrepreneurProfile.timezone });
+
+    const now = DateTime.now().setZone(entrepreneurProfile.timezone);
+    const diffInMinutes = Math.floor((appointmentDateTime - now) / (1000 * 60));
+
+    if (diffInMinutes < 0) return 'None scheduled';
+    if (diffInMinutes < 60) return `In ${diffInMinutes}m`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `In ${diffInHours}h`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `In ${diffInDays}d`;
+  };
 
     const stats = [
       {
-        name: 'Total Appointments',
-        value: currentAppointments.toString(),
-        change: calculatePercentageChange(previousAppointments, currentAppointments),
-        changeType: currentAppointments >= previousAppointments ? 'increase' : 'decrease',
-        icon: 'Calendar',
-      },
-      {
-        name: 'New Clients',
-        value: currentNewClients.toString(),
-        change: calculatePercentageChange(previousNewClients, currentNewClients),
-        changeType: currentNewClients >= previousNewClients ? 'increase' : 'decrease',
-        icon: 'Users',
-      },
-      {
-        name: 'Revenue',
-        value: `$${currentRevenueAmount.toFixed(2)}`,
-        change: calculatePercentageChange(previousRevenueAmount, currentRevenueAmount),
-        changeType: currentRevenueAmount >= previousRevenueAmount ? 'increase' : 'decrease',
+        name: "Monthly Est. Revenue",
+        value: `$${monthlyRevenue.toFixed(2)}`,
+        change: 'Excluding fees',
+        changeType: 'increase' as const,
         icon: 'DollarSign',
       },
       {
-        name: 'Avg. Booking Rate',
-        value: `${Math.round((currentBookings / (currentBookings + 2)) * 100)}%`, // Assuming 2 available slots per booked slot
-        change: calculatePercentageChange(
-          (previousBookings / (previousBookings + 2)) * 100,
-          (currentBookings / (currentBookings + 2)) * 100
-        ),
-        changeType: currentBookings >= previousBookings ? 'increase' : 'decrease',
-        icon: 'TrendingUp',
+        name: "This Week's Bookings",
+        value: thisWeekBookings.toString(),
+        change: 'Scheduled appointments',
+        changeType: 'increase' as const,
+        icon: 'Calendar',
+      },
+      {
+        name: "Today's Bookings",
+        value: todaysBookings.toString(),
+        change: 'Scheduled for today',
+        changeType: 'increase' as const,
+        icon: 'Users',
+      },
+      {
+        name: 'Next Appointment',
+        value: getNextAppointmentValue(),
+        change: nextAppointment ? nextAppointment.service.name : 'No upcoming appointments',
+        changeType: 'increase' as const,
+        icon: 'Clock',
       },
     ]
 
-    // Fetch today's appointments
+    // Fetch today's appointments for the appointments section
     const upcomingAppointments = await prisma.booking.findMany({
       where: {
         entrepreneurId: entrepreneurId,
         appointmentDate: {
-          gte: startOfToday,
-          lte: endOfToday
+          gte: startOfToday.toISODate(),
+          lte: endOfToday.toISODate()
         }
       },
       include: {
-        service: true
+        service: {
+          select: {
+            name: true,
+            duration: true
+          }
+        }
       },
       orderBy: {
         appointmentTime: 'asc'
       }
     })
 
-    // Fetch recent activity
+    // Fetch recent activity - include payment information with timestamps
     const recentActivity = await prisma.booking.findMany({
       where: {
         entrepreneurId: entrepreneurId,
         OR: [
           { status: 'CONFIRMED' },
           { status: 'CANCELLED' },
-          { status: 'COMPLETED' }
+          { status: 'COMPLETED' },
         ]
       },
       orderBy: {
-        updatedAt: 'desc'
+        createdAt: 'desc'
       },
       take: 10,
       include: {
-        payment: true
+        payment: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            netAmount: true
+          }
+        }
       }
     })
 
-    // Transform appointments and activity for frontend
-    const formattedAppointments = upcomingAppointments.map((appt: { id: any; customerName: any; service: { name: any }; appointmentTime: any; duration: any; status: string; appointmentDate: { toISOString: () => string } }) => ({
+    // Transform appointments for frontend
+    const formattedAppointments = upcomingAppointments.map((appt) => ({
       id: appt.id,
-      clientName: appt.customerName,
+      clientName: appt.customerFirstName,
       service: appt.service.name,
       time: appt.appointmentTime,
-      duration: appt.duration,
+      duration: `${appt.service.duration} min`,
       status: appt.status.toLowerCase(),
-      date: appt.appointmentDate.toISOString().split('T')[0]
+      date: appt.appointmentDate
     }))
 
-    const formattedActivity = recentActivity.map((activity: { customerName: any; status: string; payment: { status: string } | null; id: any; updatedAt: Date }) => {
-      let activityType = {
+    // Transform recent activity for frontend - Show both booking and payment events separately
+    const formattedActivity: any[] = []
+    
+    recentActivity.forEach((activity) => {
+      // Always add the booking/appointment event first
+      let bookingActivityType = {
         type: 'booking',
-        icon: 'CheckCircle',
-        iconColor: 'text-green-500',
-        message: `New appointment booked by ${activity.customerName}`
+        icon: 'Calendar',
+        iconColor: 'text-blue-500',
+        message: `New appointment booked by ${activity.customerFirstName}`
       }
 
       if (activity.status === 'CANCELLED') {
-        activityType = {
+        bookingActivityType = {
           type: 'cancellation',
           icon: 'XCircle',
           iconColor: 'text-red-500',
-          message: `Appointment cancelled by ${activity.customerName}`
+          message: `Appointment cancelled by ${activity.customerFirstName}`
         }
-      } else if (activity.payment?.status === 'PAID') {
-        activityType = {
-          type: 'payment',
-          icon: 'DollarSign',
-          iconColor: 'text-green-500',
-          message: `Payment received from ${activity.customerName}`
+      } else if (activity.status === 'COMPLETED') {
+        bookingActivityType = {
+          type: 'completion',
+          icon: 'CheckCircle',
+          iconColor: 'text-blue-500',
+          message: `Appointment completed with ${activity.customerFirstName}`
+        }
+      } else if (activity.status === 'NO_SHOW') {
+        bookingActivityType = {
+          type: 'no-show',
+          icon: 'AlertCircle',
+          iconColor: 'text-orange-500',
+          message: `${activity.customerFirstName} was a no-show`
         }
       }
 
-      return {
-        id: activity.id,
-        ...activityType,
-        time: formatTimeAgo(activity.updatedAt)
+      // Add the booking activity
+      formattedActivity.push({
+        id: `${activity.id}-booking`,
+        ...bookingActivityType,
+        time: formatTimeAgo(activity.createdAt) // Use createdAt for booking time
+      })
+
+      // If there's a completed payment, add it as a separate activity
+      if (activity.payment && activity.payment.status === 'COMPLETED') {
+        formattedActivity.push({
+          id: `${activity.id}-payment`,
+          type: 'payment',
+          icon: 'DollarSign',
+          iconColor: 'text-green-500',
+          message: `Deposit received from ${activity.customerFirstName}`,
+          time: formatTimeAgo(activity.payment.createdAt) // Use payment creation time
+        })
       }
     })
+
+    // Sort by date and time
+    formattedActivity.sort((a, b) => {
+      const timeA = new Date().getTime() - parseTimeAgo(a.time)
+      const timeB = new Date().getTime() - parseTimeAgo(b.time)
+      return timeB - timeA
+    })
+
+    // Take only the most recent 15 activities
+    const finalFormattedActivity = formattedActivity.slice(0, 15)
 
     return NextResponse.json({
       stats,
       upcomingAppointments: formattedAppointments,
-      recentActivity: formattedActivity
+      recentActivity: finalFormattedActivity,
+      nextAppointment: nextAppointment ? {
+        id: nextAppointment.id,
+        clientName: nextAppointment.customerFirstName,
+        service: nextAppointment.service.name,
+        time: nextAppointment.appointmentTime,
+        date: nextAppointment.appointmentDate
+      } : null
     })
   } catch (error) {
-    console.error('Dashboard data fetch error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch dashboard data' },
       { status: 500 }
@@ -300,14 +338,31 @@ function formatTimeAgo(date: Date) {
   const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
   
   if (diffInMinutes < 60) {
-    return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`
+    return `${diffInMinutes} min${diffInMinutes !== 1 ? 's' : ''} ago`
   }
   
   const diffInHours = Math.floor(diffInMinutes / 60)
   if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`
+    return `${diffInHours} hr${diffInHours !== 1 ? 's' : ''} ago`
   }
   
   const diffInDays = Math.floor(diffInHours / 24)
   return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`
+}
+
+// Helper function to parse time ago string back to minutes for sorting
+function parseTimeAgo(timeAgoString: string): number {
+  const parts = timeAgoString.split(' ')
+  const value = parseInt(parts[0])
+  const unit = parts[1]
+  
+  if (unit.includes('minute')) {
+    return value
+  } else if (unit.includes('hour')) {
+    return value * 60
+  } else if (unit.includes('day')) {
+    return value * 60 * 24
+  }
+  
+  return 0
 }

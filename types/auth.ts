@@ -5,6 +5,11 @@ export interface SignupData {
   email: string
   businessName: string
   password: string
+  phone: string
+  address: string
+  city: string
+  state: string
+  zipCode: string
 }
 
 export interface EntrepreneurProfile {

@@ -9,7 +9,9 @@ import {
   Clock, 
   DollarSign,
   Users,
-  MoreVertical
+  MoreVertical,
+  Home,
+  Store
 } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,17 +27,21 @@ interface Service {
   name: string
   description: string | null
   duration: number
-  price: number
   category: string
   bufferTime: number
-  requireDeposit: boolean
-  minAdvanceHours: number
-  maxAdvanceDays: number
   specialInstructions: string | null
   imageUrl: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string
+  offersHomeService: boolean
+  offersInStoreService: boolean
+  homeServicePrice: number | null
+  homeServiceDeposit: number | null
+  inStoreServicePrice: number | null
+  inStoreServiceDeposit: number | null
+  minAdvanceHours: number
+  maxAdvanceDays: number
 }
 
 const categories = [
@@ -55,6 +61,17 @@ const formatCategory = (category: string) => {
     .split('_')
     .map(word => word.charAt(0) + word.slice(1).toLowerCase())
     .join(' ')
+}
+
+// Helper function to format price in AED
+const formatAED = (price: number | null) => {
+  if (price === null || price === 0) return 'Free'
+  return new Intl.NumberFormat('en-AE', {
+    style: 'currency',
+    currency: 'AED',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(price)
 }
 
 export default function ServicesPage() {
@@ -97,7 +114,6 @@ export default function ServicesPage() {
       
       setServices(data.data)
     } catch (error) {
-      console.error('Error fetching services:', error)
       setError(error instanceof Error ? error.message : 'Failed to fetch services')
     } finally {
       setIsLoading(false)
@@ -117,7 +133,6 @@ export default function ServicesPage() {
         throw new Error('Failed to delete service')
       }
     } catch (error) {
-      console.error('Error deleting service:', error)
       alert('Failed to delete service')
     }
   }
@@ -225,20 +240,55 @@ export default function ServicesPage() {
                     </DropdownMenu>
                   </div>
                   <CardTitle>{service.name}</CardTitle>
-                  <CardDescription>{service.description || 'No description available'}</CardDescription>
                   <p className="text-xs text-muted-foreground">{formatCategory(service.category)}</p>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center text-muted-foreground">
-                        <Clock className="mr-1 h-4 w-4" />
-                        {service.duration} min
-                      </div>
-                      <div className="flex items-center text-muted-foreground">
-                        <DollarSign className="mr-1 h-4 w-4" />
-                        {service.price === 0 ? 'Free' : `${service.price}`}
-                      </div>
+                  <div className="space-y-3">
+                    {/* Duration */}
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="mr-2 h-4 w-4" />
+                      {service.duration} minutes
+                    </div>
+
+                    {/* Service Location Options */}
+                    <div className="space-y-2">
+                      {service.offersHomeService && (
+                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded-md">
+                          <div className="flex items-center text-sm">
+                            <Home className="mr-2 h-4 w-4 text-blue-600" />
+                            <span className="font-medium">Home Service</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-blue-600">
+                              {formatAED(service.homeServicePrice)}
+                            </div>
+                            {service.homeServiceDeposit && service.homeServiceDeposit > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Deposit: {formatAED(service.homeServiceDeposit)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {service.offersInStoreService && (
+                        <div className="flex items-center justify-between p-2 bg-green-50 rounded-md">
+                          <div className="flex items-center text-sm">
+                            <Store className="mr-2 h-4 w-4 text-green-600" />
+                            <span className="font-medium">In-Store Service</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-green-600">
+                              {formatAED(service.inStoreServicePrice)}
+                            </div>
+                            {service.inStoreServiceDeposit && service.inStoreServiceDeposit > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Deposit: {formatAED(service.inStoreServiceDeposit)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -273,6 +323,7 @@ export default function ServicesPage() {
           <Card>
             <CardHeader>
               <CardTitle>Service Statistics</CardTitle>
+              <CardDescription>All prices displayed in UAE Dirhams (AED)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-3">
@@ -287,23 +338,23 @@ export default function ServicesPage() {
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Average Price</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">Home Services</CardTitle>
+                    <Home className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      ${Math.round(services.filter(s => s.price > 0).reduce((acc, s) => acc + s.price, 0) / services.filter(s => s.price > 0).length)}
+                      {services.filter(s => s.offersHomeService).length}
                     </div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Average Duration</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">In-Store Services</CardTitle>
+                    <Store className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {Math.round(services.reduce((acc, s) => acc + s.duration, 0) / services.length)} min
+                      {services.filter(s => s.offersInStoreService).length}
                     </div>
                   </CardContent>
                 </Card>

@@ -70,7 +70,6 @@ export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
         message: 'Password updated successfully' 
       })
     } catch (error) {
-      console.error('Password update error:', error)
       return NextResponse.json(
         { success: false, error: 'Failed to update password' },
         { status: 500 }

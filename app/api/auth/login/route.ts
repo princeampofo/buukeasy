@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
       businessSlug: user.entrepreneurProfile?.slug || null,
       isActive: user.entrepreneurProfile?.isActive || false,
       createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString()
+      updatedAt: user.updatedAt.toISOString(),
+      timezone: user.entrepreneurProfile?.timezone || null,
     }
 
     // Set HTTP-only cookie with appropriate expiration
@@ -94,7 +95,6 @@ export async function POST(request: NextRequest) {
     return response
 
   } catch (error) {
-    console.error('Login error:', error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

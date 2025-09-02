@@ -1,81 +1,192 @@
-import { NextResponse } from 'next/server'
+// app/api/dashboard/services/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/db'
+import { ServiceCategory } from '@prisma/client'
+import { withAuth } from '@/lib/auth-middleware'
+import type { UserData } from '@/types/auth'
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export const GET = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    const serviceId = params.id
-    
-    // TODO: Fetch from database
-    const service = {
-      id: parseInt(serviceId),
-      name: 'Hair Cut & Style',
-      description: 'Professional haircut with styling consultation',
-      category: 'Hair Services',
-      duration: 60,
-      price: 75,
-      isActive: true,
-      requiresDeposit: false,
-      depositAmount: 0,
-      maxAdvanceBooking: 30,
-      minAdvanceBooking: 1,
-      bufferTime: 15,
-      instructions: 'Please arrive 5 minutes early.',
-      imageUrl: ''
+    const { pathname } = new URL(request.url)
+    const serviceId = pathname.split('/').pop()
+    const userId = user.userId
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
     }
 
-    console.log('Fetched service:', service)
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get the service and verify ownership
+    const service = await prisma.service.findFirst({
+      where: {
+        id: serviceId,
+        entrepreneurId: entrepreneurProfile.id
+      }
+    })
+
+    if (!service) {
+      return NextResponse.json(
+        { error: 'Service not found' },
+        { status: 404 }
+      )
+    }
+
     return NextResponse.json(service)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Service not found' },
-      { status: 404 }
+      { error: 'Failed to fetch service' },
+      { status: 500 }
     )
   }
-}
+})
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    const serviceId = await params.id
+    const { pathname } = new URL(request.url)
+    const serviceId = pathname.split('/').pop()
+    const userId = user.userId
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+
+    // Verify service ownership
+    const existingService = await prisma.service.findFirst({
+      where: {
+        id: serviceId,
+        entrepreneurId: entrepreneurProfile.id
+      }
+    })
+
+    if (!existingService) {
+      return NextResponse.json(
+        { error: 'Service not found' },
+        { status: 404 }
+      )
+    }
+
     const formData = await request.formData()
+
+    // Parse form data
+    const name = formData.get('name') as string
+    const category = formData.get('category') as ServiceCategory
+    const description = formData.get('description') as string
+    const duration = parseInt(formData.get('duration') as string)
+    const specialInstructions = formData.get('specialInstructions') as string || null
     
-    const serviceData = {
-      name: formData.get('name') as string,
-      description: formData.get('description') as string,
-      category: formData.get('category') as string,
-      duration: parseInt(formData.get('duration') as string),
-      price: parseFloat(formData.get('price') as string),
-      isActive: formData.get('isActive') === 'true',
-      requiresDeposit: formData.get('requiresDeposit') === 'true',
-      depositAmount: parseFloat(formData.get('depositAmount') as string) || 0,
-      maxAdvanceBooking: parseInt(formData.get('maxAdvanceBooking') as string),
-      minAdvanceBooking: parseInt(formData.get('minAdvanceBooking') as string),
-      bufferTime: parseInt(formData.get('bufferTime') as string),
-      instructions: formData.get('instructions') as string
-    }
-
-    // Handle image upload if provided
-    const image = formData.get('image') as File
-    let imageUrl = formData.get('existingImageUrl') as string
+    // Service location options
+    const offersHomeService = formData.get('offersHomeService') === 'true'
+    const offersInStoreService = formData.get('offersInStoreService') === 'true'
     
-    if (image && image.size > 0) {
-      // TODO: Upload new image and delete old one
-      // imageUrl = await uploadImage(image)
+    // Home service pricing and buffer time
+    const homeServicePrice = offersHomeService ? parseFloat(formData.get('homeServicePrice') as string) : null
+    const homeServiceDeposit = offersHomeService ? parseFloat(formData.get('homeServiceDeposit') as string || '0') : null
+    const homeServiceBufferTime = offersHomeService ? parseInt(formData.get('homeServiceBufferTime') as string || '0') : 0
+    
+    // In-store service pricing and buffer time
+    const inStoreServicePrice = offersInStoreService ? parseFloat(formData.get('inStoreServicePrice') as string) : null
+    const inStoreServiceDeposit = offersInStoreService ? parseFloat(formData.get('inStoreServiceDeposit') as string || '0') : null
+    const inStoreServiceBufferTime = offersInStoreService ? parseInt(formData.get('inStoreServiceBufferTime') as string || '0') : 0
+    
+    // Booking advance settings with defaults
+    const minAdvanceHours = parseInt(formData.get('minAdvanceHours') as string || '48')
+    const maxAdvanceDays = parseInt(formData.get('maxAdvanceDays') as string || '30')
+
+    // Validation
+    if (!name || !category || !description || !duration) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      )
     }
 
-    // TODO: Update in database
-    const updatedService = {
-      id: parseInt(serviceId),
-      ...serviceData,
-      imageUrl,
-      updatedAt: new Date().toISOString()
+    if (minAdvanceHours <= 0) {
+      return NextResponse.json(
+        { error: 'Minimum advance hours must be greater than 0' },
+        { status: 400 }
+      )
     }
 
-    console.log('Updated service:', updatedService)
+    if (maxAdvanceDays <= 0) {
+      return NextResponse.json(
+        { error: 'Maximum advance days must be greater than 0' },
+        { status: 400 }
+      )
+    }
+
+    if (!offersHomeService && !offersInStoreService) {
+      return NextResponse.json(
+        { error: 'At least one service location must be selected' },
+        { status: 400 }
+      )
+    }
+
+    if (offersHomeService && (!homeServicePrice || homeServicePrice <= 0)) {
+      return NextResponse.json(
+        { error: 'Home service price is required and must be greater than 0' },
+        { status: 400 }
+      )
+    }
+
+    if (offersInStoreService && (!inStoreServicePrice || inStoreServicePrice <= 0)) {
+      return NextResponse.json(
+        { error: 'In-store service price is required and must be greater than 0' },
+        { status: 400 }
+      )
+    }
+
+    // Update the service (removed image handling for now)
+    const updatedService = await prisma.service.update({
+      where: { id: serviceId },
+      data: {
+        name,
+        category,
+        description,
+        duration,
+        specialInstructions,
+        // imageUrl handling removed for now
+        offersHomeService,
+        offersInStoreService,
+        homeServicePrice,
+        homeServiceDeposit,
+        homeServiceBufferTime,
+        inStoreServicePrice,
+        inStoreServiceDeposit,
+        inStoreServiceBufferTime,
+        minAdvanceHours,
+        maxAdvanceDays,
+      }
+    })
+
     return NextResponse.json(updatedService)
   } catch (error) {
     return NextResponse.json(
@@ -83,25 +194,57 @@ export async function PUT(
       { status: 500 }
     )
   }
-}
+})
 
-export async function DELETE(
-  request: Request,
-  context: { params: { id: string } }
-) {
+export const DELETE = withAuth(async (request: NextRequest, user: UserData) => {
   try {
-    // await the params getter
-    const { id: serviceId } = await context.params;
-    console.log('Deleting service with ID:', serviceId);
-    
-    // now you can safely use serviceId
-    // await deleteService(serviceId);
+    const { pathname } = new URL(request.url)
+    const serviceId = pathname.split('/').pop()
+    const userId = user.userId
 
-    return NextResponse.json({ message: 'Service deleted successfully' });
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get the entrepreneur profile
+    const entrepreneurProfile = await prisma.entrepreneurProfile.findFirst({
+      where: { userId: userId }
+    })
+
+    if (!entrepreneurProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Entrepreneur profile not found' },
+        { status: 404 }
+      )
+    }
+
+    // Verify service ownership
+    const existingService = await prisma.service.findFirst({
+      where: {
+        id: serviceId,
+        entrepreneurId: entrepreneurProfile.id
+      }
+    })
+
+    if (!existingService) {
+      return NextResponse.json(
+        { error: 'Service not found' },
+        { status: 404 }
+      )
+    }
+
+    await prisma.service.delete({
+      where: { id: serviceId }
+    })
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to delete service' },
       { status: 500 }
-    );
+    )
   }
-}
+})

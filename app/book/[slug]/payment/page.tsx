@@ -1,543 +1,393 @@
 'use client'
 
-import { useState } from 'react'
-import { useParams } from 'next/navigation'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { CreditCard, Lock, Calendar, User, Mail, Phone, Apple, MapPin } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { CreditCard, Lock, ArrowLeft, CheckCircle, XCircle, Loader2, Info, AlertTriangle } from 'lucide-react'
+import { useBookingStorage } from '@/hooks/useBookingStorage'
+import { DateTime } from 'luxon'
 
-interface PaymentData {
-  cardNumber: string
-  expiryDate: string
-  cvv: string
-  cardholderName: string
-  billingAddress: string
-  city: string
-  zipCode: string
-  paymentMethod: 'card' | 'applepay' | 'googlepay' | 'paypal' | 'alipay' | 'wechatpay'
-  paymentType: 'full' | 'deposit'
+interface PaymentState {
+  status: 'idle' | 'processing' | 'success' | 'error'
+  message?: string
+  transactionId?: string
 }
 
 export default function PaymentPage() {
   const { slug } = useParams<{ slug: string }>()
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const serviceId = searchParams.get('service')
-  const date = searchParams.get('date')
-  const time = searchParams.get('time')
-  const firstName = searchParams.get('firstName')
-  const lastName = searchParams.get('lastName')
-  const email = searchParams.get('email')
-  const phone = searchParams.get('phone')
-  const serviceLocation = searchParams.get('location') || 'in-store'
-  const serviceAddress = searchParams.get('address') || ''
+  const bookingSlug = searchParams.get('booking')
+  const paymentStatus = searchParams.get('status') // Can be 'cancelled' or 'failed'
+  
+  const { 
+    bookingData, 
+    isLoaded, 
+    canProceedToStep,
+    clearBookingData,
+  } = useBookingStorage()
+
+  const [paymentState, setPaymentState] = useState<PaymentState>({ status: 'idle' })
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false)
+  
+  // Use ref to prevent multiple clearBookingData calls
+  const hasHandledPaymentStatus = useRef(false)
+
+  // Handle payment status from URL params (cancelled/failed) - FIXED
+  useEffect(() => {
+  const handleFailedPayment = async () => {
+    if ((paymentStatus === 'cancelled' || paymentStatus === 'failed') && !hasHandledPaymentStatus.current) {
+      hasHandledPaymentStatus.current = true
+      
+      try {
+        // Delete booking from database
+        await fetch(`/api/book/${slug}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bookingSlug: bookingSlug,
+          })
+        })
+      } catch (error) {
+        console.error('Error cancelling booking:', error)
+      }
+      
+      // Clear booking data when payment is cancelled/failed
+      clearBookingData()
+      
+      setPaymentState({
+        status: 'error',
+        message: paymentStatus === 'cancelled'
+          ? 'Your payment was cancelled. Please restart the booking process.'
+          : 'Your payment failed. Please restart the booking process.'
+      })
+    }
+  }
+  
+  handleFailedPayment()
+}, [paymentStatus, clearBookingData, slug, bookingSlug])
 
 
-  const [paymentData, setPaymentData] = useState<PaymentData>({
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardholderName: '',
-    billingAddress: '',
-    city: '',
-    zipCode: '',
-    paymentMethod: 'card',
-    paymentType: 'full'
-  })
-
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [errors, setErrors] = useState<Partial<PaymentData>>({})
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    
-    // Format card number
-    if (name === 'cardNumber') {
-      const formatted = value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim()
-      if (formatted.replace(/\s/g, '').length <= 16) {
-        setPaymentData(prev => ({ ...prev, [name]: formatted }))
+  // Redirect if previous steps not completed - FIXED: Only redirect if no payment status
+  useEffect(() => {
+    if (isLoaded && !paymentStatus && !hasHandledPaymentStatus.current) {
+      if (!canProceedToStep(4)) {
+        if (!bookingData.serviceId) {
+          router.push(`/book/${slug}`)
+        } else if (!bookingData.appointmentDate) {
+          router.push(`/book/${slug}/appointment`)
+        } else if (!bookingData.customerFirstName || !bookingData.customerLastName || !bookingData.customerPhone) {
+          router.push(`/book/${slug}/details`)
+        }
       }
     }
-    // Format expiry date
-    else if (name === 'expiryDate') {
-      const formatted = value.replace(/\D/g, '').replace(/(\d{2})(\d{2})/, '$1/$2')
-      if (formatted.length <= 5) {
-        setPaymentData(prev => ({ ...prev, [name]: formatted }))
-      }
-    }
-    // Format CVV
-    else if (name === 'cvv') {
-      if (value.length <= 4) {
-        setPaymentData(prev => ({ ...prev, [name]: value }))
-      }
-    }
-    else {
-      setPaymentData(prev => ({ ...prev, [name]: value }))
-    }
+  }, [isLoaded, canProceedToStep, bookingData, router, slug, paymentStatus])
 
-    // Clear errors
-    if (errors[name as keyof PaymentData]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }))
+  // Rest of your component remains the same...
+  const formatDate = (date: string) => {
+    // Parse ISO date string in business timezone
+    const dateTime = DateTime.fromISO(date, { zone: bookingData.businessTimezone || 'Asia/Dubai' })
+    return dateTime.toFormat('cccc, LLLL d, y') // e.g., "Monday, January 15, 2024"
+  }
+
+  const formatTime = (time: string) => {
+    return time
+  }
+
+  const createPaymentIntent = async () => {
+    setIsCreatingPayment(true)
+    setPaymentState({ status: 'processing' })
+
+    try {
+      const response = await fetch(`/api/book/${slug}/payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          serviceId: bookingData.serviceId,
+          appointmentDate: bookingData.appointmentDate,
+          appointmentTime: bookingData.appointmentTime,
+          totalAmount: bookingData.totalAmount,
+          depositAmount: bookingData.depositAmount,
+          serviceAmount: bookingData.serviceAmount,
+          serviceLocation: bookingData.serviceLocation,
+          
+          customerFirstName: bookingData.customerFirstName,
+          customerLastName: bookingData.customerLastName,
+          customerEmail: bookingData.customerEmail,
+          customerPhone: bookingData.customerPhone,
+          serviceAddress: bookingData.serviceAddress,
+          addressNotes: bookingData.addressNotes,
+          specialRequests: bookingData.specialRequests || '',
+          
+          entrepreneurId: bookingData.entrepreneurId,
+          paymentMethod: 'ziina',
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create payment intent')
+      }
+
+      const result = await response.json()
+
+      if (result.success && result.paymentUrl) {
+        window.location.href = result.paymentUrl
+      } else {
+        throw new Error(result.message || 'Failed to create payment intent')
+      }
+
+    } catch (error) {
+      console.error('Payment creation error:', error)
+      setPaymentState({ 
+        status: 'error', 
+        message: error instanceof Error ? error.message : 'Payment failed. Please try again.' 
+      })
+    } finally {
+      setIsCreatingPayment(false)
     }
   }
 
-  const validateForm = () => {
-    const newErrors: Partial<PaymentData> = {}
-
-    if (paymentData.paymentMethod === 'card') {
-      if (!paymentData.cardNumber.replace(/\s/g, '')) {
-        newErrors.cardNumber = 'Card number is required'
-      } else if (paymentData.cardNumber.replace(/\s/g, '').length !== 16) {
-        newErrors.cardNumber = 'Card number must be 16 digits'
-      }
-
-      if (!paymentData.expiryDate) {
-        newErrors.expiryDate = 'Expiry date is required'
-      } else if (!/^\d{2}\/\d{2}$/.test(paymentData.expiryDate)) {
-        newErrors.expiryDate = 'Invalid expiry date format'
-      }
-
-      if (!paymentData.cvv) {
-        newErrors.cvv = 'CVV is required'
-      } else if (paymentData.cvv.length < 3) {
-        newErrors.cvv = 'CVV must be at least 3 digits'
-      }
-
-      if (!paymentData.cardholderName.trim()) {
-        newErrors.cardholderName = 'Cardholder name is required'
-      }
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  const handleRestartBooking = () => {
+    clearBookingData()
+    router.push(`/book/${slug}`)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateForm()) return
-
-    setIsProcessing(true)
-    
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Redirect to confirmation
-    window.location.href = `/book/${slug}/confirmation?booking=success&paymentType=${paymentData.paymentType}&location=${serviceLocation}`
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
-
-   // Update service fee based on location
-  const serviceFee = serviceLocation === 'home' ? 150.00 : 120.00
-  const bookingFee = 5.00 // Small service fee
-  const taxes = 12.00
-  const subtotal = serviceFee + bookingFee + taxes 
-  const depositAmount = bookingFee + (serviceFee * 0.20) // Booking fee + 20% of service fee
-  const remainingAmount = serviceFee - (serviceFee * 0.20) + taxes // Remaining 80% + taxes
-
-  const getTotalAmount = () => {
-    return paymentData.paymentType === 'full' ? subtotal : depositAmount
-  }
-
-  const getPaymentMethodIcon = (method: string) => {
-    switch (method) {
-      case 'card':
-        return <CreditCard className="h-5 w-5 mr-2 text-gray-600" />
-      case 'applepay':
-        return <Apple className="h-5 w-5 mr-2 text-gray-600" />
-      case 'googlepay':
-        return (
-          <div className="w-5 h-5 mr-2 rounded text-xs flex items-center justify-center bg-gradient-to-r from-blue-500 to-green-500 text-white font-bold">
-            G
-          </div>
-        )
-      case 'paypal':
-        return <div className="w-5 h-5 mr-2 bg-blue-600 rounded text-white text-xs flex items-center justify-center">P</div>
-      case 'alipay':
-        return <div className="w-5 h-5 mr-2 bg-blue-500 rounded text-white text-xs flex items-center justify-center">A</div>
-      case 'wechatpay':
-        return <div className="w-5 h-5 mr-2 bg-green-500 rounded text-white text-xs flex items-center justify-center">W</div>
-      default:
-        return null
-    }
-  }
-
-  const renderThirdPartyPayment = (method: string, name: string) => (
-    <div className="card text-center py-8">
-      <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
-        {method === 'applepay' && <Apple className="h-12 w-12 text-gray-600" />}
-        {method === 'googlepay' && (
-          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-green-500 text-white text-xl font-bold flex items-center justify-center">
-            G
-          </div>
-        )}
-        {method === 'paypal' && (
-          <div className="w-12 h-12 bg-blue-600 rounded-full text-white text-xl font-bold flex items-center justify-center">
-            P
-          </div>
-        )}
-        {method === 'alipay' && (
-          <div className="w-12 h-12 bg-blue-500 rounded-full text-white text-xl font-bold flex items-center justify-center">
-            A
-          </div>
-        )}
-        {method === 'wechatpay' && (
-          <div className="w-12 h-12 bg-green-500 rounded-full text-white text-xl font-bold flex items-center justify-center">
-            W
-          </div>
-        )}
+  // Don't render until data is loaded
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
       </div>
-      <h3 className="text-lg font-semibold mb-2">Pay with {name}</h3>
-      <p className="text-gray-600 mb-4">
-        You'll be redirected to {name} to complete your payment securely.
-      </p>
-    </div>
-  )
+    )
+  }
+
+  // If payment was cancelled or failed, show error message and restart option
+  if (paymentStatus === 'cancelled' || paymentStatus === 'failed') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-8 max-w-md w-full">
+          <div className="text-center">
+            {paymentStatus === 'cancelled' ? (
+              <AlertTriangle className="h-10 w-10 sm:h-12 sm:w-12 text-orange-600 mx-auto mb-4" />
+            ) : (
+              <XCircle className="h-10 w-10 sm:h-12 sm:w-12 text-red-600 mx-auto mb-4" />
+            )}
+            <h1 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+              {paymentStatus === 'cancelled' ? 'Payment Cancelled' : 'Payment Failed'}
+            </h1>
+            <p className="text-gray-600 mb-6 text-sm sm:text-base">
+              {paymentStatus === 'cancelled' 
+                ? 'Your payment was cancelled. Please restart the booking process to try again.'
+                : 'Your payment failed. Please restart the booking process to try again.'
+              }
+            </p>
+            <button
+              onClick={handleRestartBooking}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+            >
+              Start New Booking
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render if previous steps not completed (and no error status)
+  if (!canProceedToStep(4)) {
+    return null
+  }
+
+  const remainingAmount = (bookingData.totalAmount || 0) - (bookingData.depositAmount || 0)
 
   return (
-    <div className="space-y-6">
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Payment Form */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Payment Type Selection */}
-          <div className="card">
-            <h2 className="text-xl font-semibold mb-4">Payment Option</h2>
-            <div className="space-y-3">
-              <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentType"
-                  value="full"
-                  checked={paymentData.paymentType === 'full'}
-                  onChange={handleInputChange}
-                  className="mr-3 mt-1"
-                />
-                <div className="flex-1">
-                  <div className="font-medium">Pay in Full</div>
-                  <div className="text-sm text-gray-600">
-                    Complete payment now - ${subtotal.toFixed(2)}
-                  </div>
-                </div>
-              </label>
+    <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto px-3 sm:px-6">
+      {/* Rest of your JSX remains exactly the same */}
+      {/* Back Button and Header */}
+      <div className="flex items-center gap-3 mb-4 sm:mb-6">
+        <button
+          onClick={() => router.push(`/book/${slug}/details`)}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+        </button>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Payment</h1>
+      </div>
 
-              <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentType"
-                  value="deposit"
-                  checked={paymentData.paymentType === 'deposit'}
-                  onChange={handleInputChange}
-                  className="mr-3 mt-1"
-                />
-                <div className="flex-1">
-                  <div className="font-medium">Pay Booking Deposit</div>
-                  <div className="text-sm text-gray-600">
-                    Secure your appointment with ${depositAmount.toFixed(2)} now
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Pay remaining ${remainingAmount.toFixed(2)} in cash at appointment
-                  </div>
+      {/* Deposit Information Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg sm:rounded-xl p-4 sm:p-6">
+        <div className="flex items-start gap-3">
+          <Info className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-sm sm:text-base">Deposit Payment</h3>
+            <p className="text-blue-800 text-xs sm:text-sm leading-relaxed">
+              You're paying a deposit of <strong>AED {bookingData.depositAmount?.toFixed(2)}</strong> to secure your appointment. 
+              <span className="hidden sm:inline"> The remaining amount of <strong>AED {remainingAmount.toFixed(2)}</strong> will be paid directly to the service provider at the time of your appointment.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Booking Summary */}
+      <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-900">Booking Summary</h2>
+        
+        <div className="space-y-3 sm:space-y-4">
+          {/* Service Details - Mobile Stacked, Desktop Grid */}
+          <div className="space-y-4 sm:grid sm:grid-cols-2 sm:gap-6 sm:space-y-0">
+            <div>
+              <h3 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Service Details</h3>
+              <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service:</span>
+                  <span className="font-medium text-right flex-1 ml-2">{bookingData.serviceName}</span>
                 </div>
-              </label>
+                <div className="flex justify-between sm:hidden">
+                  <span className="text-gray-600">Date:</span>
+                  <span className="text-right flex-1 ml-2">{bookingData.appointmentDate && formatDate(bookingData.appointmentDate)}</span>
+                </div>
+                <div className="flex justify-between sm:hidden">
+                  <span className="text-gray-600">Time:</span>
+                  <span className="text-right flex-1 ml-2">{formatTime(bookingData.appointmentTime || '')} (GST)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="text-right flex-1 ml-2">{bookingData.duration} minutes</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Location:</span>
+                  <span className="text-right flex-1 ml-2">{bookingData.serviceLocation === 'home' ? 'Home Service' : 'In-Store'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden sm:block">
+              <h3 className="font-medium text-gray-900 mb-3">Appointment Details</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Date:</span>
+                  <span>{bookingData.appointmentDate && formatDate(bookingData.appointmentDate)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Time:</span>
+                  <span>{formatTime(bookingData.appointmentTime || '')} (GST)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Customer:</span>
+                  <span>{bookingData.customerFirstName} {bookingData.customerLastName}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Payment Method Selection */}
-          <div className="card">
-            <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
-            <div className="space-y-3">
-              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="card"
-                  checked={paymentData.paymentMethod === 'card'}
-                  onChange={handleInputChange}
-                  className="mr-3"
-                />
-                {getPaymentMethodIcon('card')}
-                <span>Credit/Debit Card</span>
-              </label>
-
-              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="applepay"
-                  checked={paymentData.paymentMethod === 'applepay'}
-                  onChange={handleInputChange}
-                  className="mr-3"
-                />
-                {getPaymentMethodIcon('applepay')}
-                <span>Apple Pay</span>
-              </label>
-              
-              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="googlepay"
-                  checked={paymentData.paymentMethod === 'googlepay'}
-                  onChange={handleInputChange}
-                  className="mr-3"
-                />
-                {getPaymentMethodIcon('googlepay')}
-                <span>Google Pay</span>
-              </label>
-              
-              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="paypal"
-                  checked={paymentData.paymentMethod === 'paypal'}
-                  onChange={handleInputChange}
-                  className="mr-3"
-                />
-                {getPaymentMethodIcon('paypal')}
-                <span>PayPal</span>
-              </label>
-
-              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="alipay"
-                  checked={paymentData.paymentMethod === 'alipay'}
-                  onChange={handleInputChange}
-                  className="mr-3"
-                />
-                {getPaymentMethodIcon('alipay')}
-                <span>Alipay</span>
-              </label>
-
-              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="wechatpay"
-                  checked={paymentData.paymentMethod === 'wechatpay'}
-                  onChange={handleInputChange}
-                  className="mr-3"
-                />
-                {getPaymentMethodIcon('wechatpay')}
-                <span>WeChat Pay</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Card Details */}
-          {paymentData.paymentMethod === 'card' && (
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-4">Card Details</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="form-label">Card Number</label>
-                  <input
-                    type="text"
-                    name="cardNumber"
-                    value={paymentData.cardNumber}
-                    onChange={handleInputChange}
-                    className={`input-field ${errors.cardNumber ? 'border-red-500' : ''}`}
-                    placeholder="1234 5678 9012 3456"
-                  />
-                  {errors.cardNumber && (
-                    <p className="text-red-500 text-sm mt-1">{errors.cardNumber}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Expiry Date</label>
-                    <input
-                      type="text"
-                      name="expiryDate"
-                      value={paymentData.expiryDate}
-                      onChange={handleInputChange}
-                      className={`input-field ${errors.expiryDate ? 'border-red-500' : ''}`}
-                      placeholder="MM/YY"
-                    />
-                    {errors.expiryDate && (
-                      <p className="text-red-500 text-sm mt-1">{errors.expiryDate}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">CVV</label>
-                    <input
-                      type="text"
-                      name="cvv"
-                      value={paymentData.cvv}
-                      onChange={handleInputChange}
-                      className={`input-field ${errors.cvv ? 'border-red-500' : ''}`}
-                      placeholder="123"
-                    />
-                    {errors.cvv && (
-                      <p className="text-red-500 text-sm mt-1">{errors.cvv}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="form-label">Cardholder Name</label>
-                  <input
-                    type="text"
-                    name="cardholderName"
-                    value={paymentData.cardholderName}
-                    onChange={handleInputChange}
-                    className={`input-field ${errors.cardholderName ? 'border-red-500' : ''}`}
-                    placeholder="John Doe"
-                  />
-                  {errors.cardholderName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.cardholderName}</p>
-                  )}
-                </div>
-              </form>
+          {/* Service Address for Home Services */}
+          {bookingData.serviceLocation === 'home' && bookingData.serviceAddress && (
+            <div className="pt-3 sm:pt-4 border-t">
+              <h3 className="font-medium text-gray-900 mb-2 text-sm sm:text-base">Service Address</h3>
+              <p className="text-xs sm:text-sm text-gray-600">{bookingData.serviceAddress}</p>
+              {bookingData.addressNotes && (
+                <p className="text-xs sm:text-sm text-gray-500 mt-1">Note: {bookingData.addressNotes}</p>
+              )}
             </div>
           )}
 
-          {/* Third-party Payment Methods */}
-          {paymentData.paymentMethod === 'applepay' && renderThirdPartyPayment('applepay', 'Apple Pay')}
-          {paymentData.paymentMethod === 'googlepay' && renderThirdPartyPayment('googlepay', 'Google Pay')}
-          {paymentData.paymentMethod === 'paypal' && renderThirdPartyPayment('paypal', 'PayPal')}
-          {paymentData.paymentMethod === 'alipay' && renderThirdPartyPayment('alipay', 'Alipay')}
-          {paymentData.paymentMethod === 'wechatpay' && renderThirdPartyPayment('wechatpay', 'WeChat Pay')}
-
-          {/* Security Notice */}
-          <div className="flex items-center justify-center text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-            <Lock className="h-4 w-4 mr-2" />
-            <span>Your payment information is encrypted and secure</span>
-          </div>
-        </div>
-
-        {/* Order Summary */}
-        <div className="lg:col-span-1">
-          <div className="card sticky top-4">
-            <h3 className="text-lg font-semibold mb-4">Booking Summary</h3>
-            
-            {/* Appointment Details */}
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center text-sm">
-                <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                <span>{date && formatDate(date)} at {time}</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                <span>{serviceLocation === 'home' ? `Home Service: ${decodeURIComponent(serviceAddress)}` : 'In-Store Service'}</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <User className="h-4 w-4 mr-2 text-gray-400" />
-                <span>{firstName} {lastName}</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                <span>{email}</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                <span>{phone}</span>
-              </div>
+          {/* Special Requests - Hidden on mobile if empty */}
+          {bookingData.specialRequests && (
+            <div className="pt-3 sm:pt-4 border-t">
+              <h3 className="font-medium text-gray-900 mb-2 text-sm sm:text-base">Special Requests</h3>
+              <p className="text-xs sm:text-sm text-gray-600">{bookingData.specialRequests}</p>
             </div>
+          )}
 
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Service</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Deep Tissue Massage (60 min)</span>
-                  <span>${(serviceLocation === 'home' ? 120.00 : serviceFee).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Booking Fee</span>
-                  <span>${bookingFee.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Taxes</span>
-                  <span>${taxes.toFixed(2)}</span>
-                </div>
-                <div className="border-t pt-2">
-                  <div className="flex justify-between text-gray-600 text-xs">
-                    <span>Total Service Cost</span>
-                    <span>${subtotal.toFixed(2)}</span>
-                  </div>
+          {/* Payment Breakdown */}
+          <div className="pt-3 sm:pt-4 border-t">
+            <div className="space-y-1 sm:space-y-2">
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                <span className="text-gray-600">Total Service Amount:</span>
+                <span className="font-medium">AED {bookingData.totalAmount?.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                <span className="text-gray-600">Deposit (Now):</span>
+                <span className="font-medium text-blue-600">AED {bookingData.depositAmount?.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                <span className="text-gray-600">Remaining (At Appointment):</span>
+                <span className="font-medium">AED {remainingAmount.toFixed(2)}</span>
+              </div>
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-base sm:text-lg font-semibold text-gray-900">Pay Today:</span>
+                  <span className="text-xl sm:text-2xl font-bold text-blue-600">AED {bookingData.depositAmount?.toFixed(2)}</span>
                 </div>
               </div>
             </div>
-
-            {/* Payment Breakdown */}
-            <div className="border-t pt-4 mt-4">
-              <h4 className="font-medium mb-3">
-                {paymentData.paymentType === 'full' ? 'Full Payment' : 'Deposit Payment'}
-              </h4>
-              <div className="space-y-2 text-sm">
-                {paymentData.paymentType === 'deposit' ? (
-                  <>
-                    <div className="flex justify-between">
-                      <span>Booking Fee</span>
-                      <span>${bookingFee.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Service Deposit (20%)</span>
-                      <span>${(serviceFee * 0.20).toFixed(2)}</span>
-                    </div>
-                    <div className="border-t pt-2 flex justify-between font-semibold text-blue-600">
-                      <span>Pay Now</span>
-                      <span>${depositAmount.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-600 text-xs pt-2 border-t">
-                      <span>Pay at Appointment (Cash)</span>
-                      <span>${remainingAmount.toFixed(2)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between font-semibold text-green-600">
-                    <span>Pay Now</span>
-                    <span>${subtotal.toFixed(2)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Complete Payment Button */}
-            <button
-              onClick={handleSubmit}
-              disabled={isProcessing}
-              className="w-full btn-primary mt-6 py-3 text-lg disabled:opacity-50"
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Processing...
-                </div>
-              ) : (
-                `Complete Payment - $${getTotalAmount().toFixed(2)}`
-              )}
-            </button>
-
-            {paymentData.paymentType === 'deposit' && (
-              <p className="text-xs text-gray-500 text-center mt-2">
-                Remaining balance to be paid in cash at your appointment
-              </p>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <Link
-          href={`/book/${slug}/details?service=${serviceId}&date=${date}&time=${time}&location=${serviceLocation}`}
-          className="btn-secondary"
-        >
-          Back to Details
-        </Link>
+      {/* Payment Section */}
+      <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border p-4 sm:p-6">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
+          <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Payment</h2>
+        </div>
+
+        {/* Payment Status Messages */}
+        {paymentState.status === 'error' && (
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
+              <span className="text-red-800 font-medium text-sm sm:text-base">Payment Failed</span>
+            </div>
+            <p className="text-red-600 text-xs sm:text-sm mt-1">{paymentState.message}</p>
+          </div>
+        )}
+
+        <div className="space-y-3 sm:space-y-4">
+          <button
+            onClick={createPaymentIntent}
+            disabled={paymentState.status === 'processing' || isCreatingPayment}
+            className={`w-full flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl font-semibold text-base sm:text-lg transition-all ${
+              paymentState.status === 'processing' || isCreatingPayment
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
+            }`}
+          >
+            {(paymentState.status === 'processing' || isCreatingPayment) ? (
+              <>
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
+                Pay AED {bookingData.depositAmount?.toFixed(2)}
+              </>
+            )}
+          </button>
+
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 justify-center">
+            <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span>Your payment information is secure and encrypted</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Terms and Conditions - Simplified on mobile */}
+      <div className="bg-gray-50 rounded-lg sm:rounded-xl p-4 sm:p-6">
+        <h3 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Terms and Conditions</h3>
+        <div className="text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-2">
+          <p>• By proceeding with payment, you agree to our terms of service and privacy policy.</p>
+          <p>• This deposit secures your appointment time and is non-refundable within 24 hours.</p>
+          <p className="hidden sm:block">• Cancellations must be made at least 24 hours in advance for a full deposit refund.</p>
+          <p className="hidden sm:block">• The remaining service amount will be paid directly to the service provider.</p>
+          <p className="hidden sm:block">• You will receive a confirmation email once payment is completed.</p>
+          <p className="sm:hidden">• Cancellations must be made 24+ hours in advance.</p>
+          <p className="sm:hidden">• You will receive a confirmation email once completed.</p>
+        </div>
       </div>
     </div>
   )

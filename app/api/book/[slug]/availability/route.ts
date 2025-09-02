@@ -1,5 +1,7 @@
-// app/api/timeslots/route.ts
+// app/api/book/[slug]/availability/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { DateTime } from 'luxon'
+import prisma from '@/lib/db'
 
 interface TimeSlot {
   time: string
@@ -7,117 +9,329 @@ interface TimeSlot {
   datetime: string
 }
 
-// Mock database for existing bookings - in production, this would be a real database
-const existingBookings = new Map<string, string[]>([
-  // Format: "YYYY-MM-DD" -> ["HH:MM", "HH:MM", ...]
-  ['2025-07-07', ['09:00', '10:30', '14:00', '15:30']],
-  ['2025-07-08', ['09:30', '11:00', '13:30', '16:00']],
-  ['2025-07-09', ['10:00', '11:30', '14:30', '15:00']],
-  ['2025-07-10', ['09:00', '12:00', '13:00', '16:30']],
-  ['2025-07-11', ['10:30', '14:00', '15:30', '17:00']],
-])
-
-// Mock business hours - in production, this would come from business settings
-const businessHours = {
-  monday: { start: 9, end: 18, closed: false },
-  tuesday: { start: 9, end: 18, closed: false },
-  wednesday: { start: 9, end: 18, closed: false },
-  thursday: { start: 9, end: 18, closed: false },
-  friday: { start: 9, end: 19, closed: false },
-  saturday: { start: 10, end: 17, closed: false },
-  sunday: { start: 11, end: 16, closed: false }
+interface BookingWindow {
+  minAdvanceHours: number
+  maxAdvanceDays: number
+  minBookingDate: string
+  maxBookingDate: string
 }
 
-// Mock blocked dates - in production, this would come from business calendar
-const blockedDates = [
-  '2025-07-15', // Staff training day
-  '2025-07-25', // Holiday
-  '2025-08-01'  // Maintenance day
-]
-
-const generateTimeSlots = (date: string, serviceId: string): TimeSlot[] => {
-  const slots: TimeSlot[] = []
-  const targetDate = new Date(date)
-  const dayOfWeek = targetDate.toLocaleDateString('en-US', { weekday: 'lowercase' }) as keyof typeof businessHours
+// Generate time slots based on working hours and filter out booked ones
+async function generateAvailableTimeSlots(
+  date: string, 
+  entrepreneurId: string, 
+  serviceId: string,
+  serviceLocation: string,
+  timezone: string
+): Promise<TimeSlot[]> {
+  // Parse the date in the entrepreneur's timezone
+  const targetDate = DateTime.fromISO(date, { zone: timezone })
   
-  // Check if business is closed on this day
-  const hours = businessHours[dayOfWeek]
-  if (hours.closed) {
-    return slots
+  if (!targetDate.isValid) {
+    console.log(`Invalid date: ${date}`)
+    return []
   }
+  
+  const dayOfWeek = targetDate.weekday % 7 // Luxon uses 1-7 (Mon-Sun), convert to 0-6 (Sun-Sat)
+  
+  console.log(`=== GENERATING SLOTS (${timezone}) ===`)
+  console.log(`Date string: ${date}`)
+  console.log(`Target date: ${targetDate.toISO()}`)
+  console.log(`Day of Week: ${dayOfWeek} (0=Sunday, 1=Monday, etc.)`)
+  console.log(`Service Location: ${serviceLocation}`)
 
-  // Check if date is blocked
-  if (blockedDates.includes(date)) {
-    return slots
-  }
-
-  const startHour = hours.start
-  const endHour = hours.end
-  const interval = 30 // minutes
-  const existingBookingsForDate = existingBookings.get(date) || []
-
-  for (let hour = startHour; hour < endHour; hour++) {
-    for (let minute = 0; minute < 60; minute += interval) {
-      const time = new Date(targetDate)
-      time.setHours(hour, minute, 0, 0)
-      
-      const timeString = time.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      })
-
-      const timeKey = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-      
-      // Check if this time slot is already booked
-      const isBooked = existingBookingsForDate.includes(timeKey)
-      
-      // Add some randomness for demo purposes (in production, only check actual bookings)
-      const isAvailable = !isBooked && Math.random() > 0.2
-      
-      slots.push({
-        time: timeString,
-        available: isAvailable,
-        datetime: time.toISOString()
-      })
+  // Get ALL working hours for this day
+  const workingHours = await prisma.timeSlot.findMany({
+    where: {
+      entrepreneurId,
+      dayOfWeek,
+      isActive: true
+    },
+    orderBy: {
+      startTime: 'asc'
     }
+  })
+
+  if (!workingHours || workingHours.length === 0) {
+    console.log(`No working hours configured for day ${dayOfWeek}`)
+    return []
   }
+
+  console.log(`Found ${workingHours.length} working hour blocks:`)
+  workingHours.forEach((wh, index) => {
+    console.log(`  Block ${index + 1}: ${wh.startTime} - ${wh.endTime}`)
+  })
+
+  // Get service details with location-specific buffer time
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId },
+    select: { 
+      duration: true, 
+      inStoreServiceBufferTime: true,
+      homeServiceBufferTime: true,
+      minAdvanceHours: true,
+      maxAdvanceDays: true
+    }
+  })
+
+  if (!service) {
+    console.log(`Service not found: ${serviceId}`)
+    return []
+  }
+
+  // Determine buffer time based on service location
+  const bufferTime = serviceLocation === 'home' 
+    ? (service.homeServiceBufferTime || 15)
+    : (service.inStoreServiceBufferTime || 15)
+
+  const minAdvanceHours = service.minAdvanceHours || 48
+  const maxAdvanceDays = service.maxAdvanceDays || 90
   
-  return slots
+  console.log(`Service duration: ${service.duration} minutes`)
+  console.log(`Buffer time (${serviceLocation}): ${bufferTime} minutes`)
+  console.log(`Min advance hours: ${minAdvanceHours}`)
+  console.log(`Max advance days: ${maxAdvanceDays}`)
+
+  // Calculate booking window in entrepreneur's timezone
+  const now = DateTime.now().setZone(timezone)
+  const minBookingTime = now.plus({ hours: minAdvanceHours })
+  const maxBookingTime = now.plus({ days: maxAdvanceDays })
+
+  console.log(`Current time (${timezone}): ${now.toISO()}`)
+  console.log(`Min booking time: ${minBookingTime.toISO()}`)
+  console.log(`Max booking time: ${maxBookingTime.toISO()}`)
+
+  // Get existing bookings for this date
+  const startOfDay = targetDate.startOf('day')
+  // const endOfDay = targetDate.endOf('day')
+
+  const existingBookings = await prisma.booking.findMany({
+    where: {
+      entrepreneurId,
+      appointmentDate: startOfDay.toISODate(),
+      status: {
+        in: ['CONFIRMED', 'PENDING']
+      }
+    },
+    select: {
+      appointmentDate: true,
+      appointmentTime: true,
+      duration: true,
+      serviceLocation: true,
+      service: {
+        select: {
+          inStoreServiceBufferTime: true,
+          homeServiceBufferTime: true
+        }
+      }
+    }
+  })
+
+  console.log(`Found ${existingBookings.length} existing bookings`)
+
+  const allSlots: TimeSlot[] = []
+  
+  // Determine optimal interval based on service duration
+  const interval = 15
+  console.log(`Using ${interval}-minute intervals for slot generation`)
+
+  // Generate slots for each working hours block
+  workingHours.forEach((workingBlock, blockIndex) => {
+    console.log(`\n=== Processing Block ${blockIndex + 1}: ${workingBlock.startTime} - ${workingBlock.endTime} ===`)
+    
+    // Parse working hours (HH:mm format)
+    const [startHour, startMinute] = workingBlock.startTime.split(':').map(Number)
+    const [endHour, endMinute] = workingBlock.endTime.split(':').map(Number)
+    
+    const workingStart = targetDate.set({ hour: startHour, minute: startMinute, second: 0, millisecond: 0 })
+    const workingEnd = targetDate.set({ hour: endHour, minute: endMinute, second: 0, millisecond: 0 })
+    
+    // Calculate effective end time: workingEnd - duration - bufferTime
+    const effectiveEndTime = workingEnd.minus({ minutes: service.duration + bufferTime })
+    
+    
+    // Generate time slots at optimized intervals
+    let currentSlot = workingStart
+    
+    while (currentSlot <= effectiveEndTime) {
+      // Skip if not within booking window
+      if (currentSlot <= minBookingTime) {
+        currentSlot = currentSlot.plus({ minutes: interval })
+        continue
+      }
+      
+      if (currentSlot >= maxBookingTime) {
+        break
+      }
+      
+      const timeString = currentSlot.toFormat('HH:mm')
+
+      // Check for conflicts with existing bookings
+      let isAvailable = true
+      
+      for (const booking of existingBookings) {
+        const existingDateTime = DateTime.fromISO(`${booking.appointmentDate}T${booking.appointmentTime}:00`)
+        const currentSlotDatetime = DateTime.fromISO(`${date}T${timeString}:00`)
+
+        // Determine existing booking's buffer time
+        const existingBookingBufferTime = booking.serviceLocation === 'home'
+          ? (booking.service.homeServiceBufferTime || 15)
+          : (booking.service.inStoreServiceBufferTime || 15)
+
+        const existingEnd = existingDateTime.plus({ minutes: booking.duration + existingBookingBufferTime })
+
+        const bookingEnd = currentSlotDatetime.plus({ minutes: service.duration + bufferTime })
+        
+        // Check for overlap
+        if (currentSlotDatetime < existingEnd && bookingEnd > existingDateTime) {
+          isAvailable = false
+          break
+        }
+      }
+      
+      // Check for duplicates from other blocks
+      const existingSlot = allSlots.find(slot => slot.time === timeString)
+      if (!existingSlot && isAvailable) {
+        allSlots.push({
+          time: timeString,
+          available: true,
+          datetime: currentSlot.toISO()
+        })
+      }
+      
+      currentSlot = currentSlot.plus({ minutes: interval })
+    }
+  })
+
+  // Sort slots by time
+  allSlots.sort((a, b) => a.time.localeCompare(b.time))
+  
+  return allSlots
+}
+
+// Calculate booking window based on service settings
+async function getBookingWindow(serviceId: string, timezone: string): Promise<BookingWindow> {
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId },
+    select: { 
+      minAdvanceHours: true,
+      maxAdvanceDays: true
+    }
+  })
+
+  if (!service) {
+    throw new Error('Service not found')
+  }
+
+  const minAdvanceHours = service.minAdvanceHours || 48
+  const maxAdvanceDays = service.maxAdvanceDays || 60
+
+  // Calculate dates in entrepreneur's timezone
+  const now = DateTime.now().setZone(timezone)
+  const minBookingDate = now.plus({ hours: minAdvanceHours }).startOf('day')
+  const maxBookingDate = now.plus({ days: maxAdvanceDays }).endOf('day')
+
+  return {
+    minAdvanceHours,
+    maxAdvanceDays,
+    minBookingDate: minBookingDate.toISO(),
+    maxBookingDate: maxBookingDate.toISO()
+  }
 }
 
 export async function GET(request: NextRequest) {
   try {
+    const slug = request.url.split('/').at(-2)
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
     const serviceId = searchParams.get('serviceId')
+    const serviceLocation = searchParams.get('serviceLocation') || 'in-store' // Default to in-store
     
-    if (!date) {
+    if (!serviceId) {
       return NextResponse.json(
-        { error: 'Date parameter is required' },
+        { error: 'Service ID is required' },
         { status: 400 }
       )
+    }
+
+    // Find entrepreneur
+    const entrepreneur = await prisma.entrepreneurProfile.findFirst({
+      where: { slug },
+      select: { id: true, timezone: true }
+    })
+
+    if (!entrepreneur) {
+      return NextResponse.json(
+        { error: 'Entrepreneur not found' },
+        { status: 404 }
+      )
+    }
+
+    const timezone = entrepreneur.timezone || 'Asia/Dubai'
+
+    // If no date provided, return booking window only
+    if (!date) {
+      const bookingWindow = await getBookingWindow(serviceId, timezone)
+      return NextResponse.json({ 
+        bookingWindow,
+        timeSlots: [],
+        timezone,
+        message: 'Select a date to see available times'
+      })
     }
 
     // Validate date format
-    const targetDate = new Date(date)
-    if (isNaN(targetDate.getTime())) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(date)) {
       return NextResponse.json(
-        { error: 'Invalid date format' },
+        { error: 'Invalid date format. Use YYYY-MM-DD' },
         { status: 400 }
       )
     }
 
-    // Check if date is in the past
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (targetDate < today) {
-      return NextResponse.json({ timeSlots: [] })
+    // Parse and validate date in entrepreneur's timezone
+    const targetDate = DateTime.fromISO(date, { zone: timezone })
+    
+    if (!targetDate.isValid) {
+      return NextResponse.json(
+        { error: 'Invalid date' },
+        { status: 400 }
+      )
     }
 
-    const timeSlots = generateTimeSlots(date, serviceId || '1')
+    // Get booking window for validation
+    const bookingWindow = await getBookingWindow(serviceId, timezone)
+
+    const minBookingDate = DateTime.fromISO(bookingWindow.minBookingDate, { zone: timezone })
+    const maxBookingDate = DateTime.fromISO(bookingWindow.maxBookingDate, { zone: timezone })
     
-    return NextResponse.json({ timeSlots })
+    if (targetDate < minBookingDate) {
+      return NextResponse.json({ 
+        timeSlots: [],
+        bookingWindow,
+        timezone,
+        message: `Bookings must be made at least ${bookingWindow.minAdvanceHours} hours in advance`
+      })
+    }
+
+    if (targetDate > maxBookingDate) {
+      return NextResponse.json({ 
+        timeSlots: [],
+        bookingWindow,
+        timezone,
+        message: `Bookings can only be made up to ${bookingWindow.maxAdvanceDays} days in advance`
+      })
+    }
+
+    // Generate available time slots with service location
+    const timeSlots = await generateAvailableTimeSlots(date, entrepreneur.id, serviceId, serviceLocation, timezone)
+    
+    return NextResponse.json({ 
+      timeSlots,
+      bookingWindow,
+      timezone
+    })
+    
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error' },

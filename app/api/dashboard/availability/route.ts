@@ -1,3 +1,4 @@
+// app/api/dashboard/availability/route.ts
 import { NextResponse, NextRequest } from 'next/server'
 import prisma from '@/lib/db'
 import { UserData } from '@/types/auth'
@@ -89,7 +90,6 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
 
     return NextResponse.json({ success: true, data: schedule })
   } catch (error) {
-    console.error('Error fetching availability data:', error)
     return NextResponse.json(
       { error: 'Failed to fetch availability' },
       { status: 500 }
@@ -151,7 +151,6 @@ export const POST = withAuth(async (request: NextRequest, user: UserData) => {
 
     return NextResponse.json({ success: true, message: 'Availability updated' })
   } catch (error) {
-    console.error('Update Availability API Error:', error)
     return NextResponse.json(
       { error: 'Failed to update availability' },
       { status: 500 }

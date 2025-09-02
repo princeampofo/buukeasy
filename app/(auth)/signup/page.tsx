@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Mail, Lock, User, Building, AlertCircle, CheckCircle, Rocket, Sparkles, Star, Crown } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Building, AlertCircle, CheckCircle, Rocket, Sparkles, Star, Crown, Phone, MapPin, Map } from 'lucide-react'
 import { useAuthContext } from '@/contexts/AuthContext'
 
 export default function SignupPage() {
@@ -11,7 +11,13 @@ export default function SignupPage() {
     firstName: '',
     lastName: '',
     email: '',
+    countryCode: '+971',
+    phoneNumber: '',
     businessName: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
     password: '',
     confirmPassword: ''
   })
@@ -55,6 +61,52 @@ export default function SignupPage() {
     }
   }
 
+  const getPhonePlaceholder = (countryCode: string) => {
+    switch (countryCode) {
+      case '+971': return '50 123 4567'   // UAE
+      case '+1': return '555 123 4567'    // US/Canada
+      case '+44': return '7700 900123'    // UK
+      case '+33': return '6 12 34 56 78'  // France
+      case '+49': return '30 12345678'    // Germany
+      default: return '123456789'        // Default
+    }
+  }
+
+  const formatPhoneNumber = (value: string, countryCode: string) => {
+    // Remove all non-numeric characters
+    let cleaned = value.replace(/\D/g, '')
+    
+    // Get expected length based on country code
+    const getExpectedLength = (code: string) => {
+      switch (code) {
+        case '+971': return 9 // UAE
+        case '+1': return 10   // US/Canada
+        case '+44': return 10  // UK
+        case '+33': return 9   // France
+        case '+49': return 11  // Germany
+        default: return 10     // Default fallback
+      }
+    }
+    
+    const expectedLength = getExpectedLength(countryCode)
+    
+    // Limit to expected length for the country
+    if (cleaned.length > expectedLength) {
+      cleaned = cleaned.substring(0, expectedLength)
+    }
+    
+    return cleaned
+  }
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value, formData.countryCode || '+971')
+    setFormData(prev => ({
+      ...prev,
+      phoneNumber: formatted
+    }))
+    if (localError) setLocalError('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -73,11 +125,31 @@ export default function SignupPage() {
       return
     }
 
+    // Validate phone format (E.164 format) - extensible for all countries
+    const fullPhoneNumber = (formData.countryCode || '+971') + formData.phoneNumber
+    const validatePhoneNumber = (phone: string) => {
+      // E.164 format: + followed by country code and national number
+      // Total length should be between 7-15 digits (excluding +)
+      const e164Regex = /^\+[1-9]\d{6,14}$/
+      return e164Regex.test(phone)
+    }
+    
+    if (!validatePhoneNumber(fullPhoneNumber)) {
+      setLocalError('Please enter a valid phone number')
+      setIsLoading(false)
+      return
+    }
+
     const success = await signup({
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
+      phone: (formData.countryCode || '+971') + formData.phoneNumber, // E.164 format
       businessName: formData.businessName,
+      address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      zipCode: formData.zipCode,
       password: formData.password,
     })
     
@@ -203,6 +275,53 @@ export default function SignupPage() {
               </div>
             </div>
 
+            {/* Phone */}
+            <div className="group">
+              <label htmlFor="phone" className="block text-sm font-semibold text-white/90 mb-3">
+                Phone Number
+              </label>
+              <div className="flex gap-3">
+                {/* Country Code Selector */}
+                <div className="relative">
+                  <select
+                    value={formData.countryCode || '+971'}
+                    onChange={(e) => setFormData(prev => ({ ...prev, countryCode: e.target.value }))}
+                    className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-4 py-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300 hover:bg-white/15 pr-10"
+                  >
+                    {/* Currently only UAE is supported - add more countries here when needed */}
+                    <option value="+971" className="bg-slate-800 text-white">🇦🇪 +971</option>
+                    {/* Future countries can be added like:
+                    <option value="+1" className="bg-slate-800 text-white">🇺🇸 +1</option>
+                    <option value="+44" className="bg-slate-800 text-white">🇬🇧 +44</option>
+                    */}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Phone Number Input */}
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-white/50 group-focus-within:text-blue-400 transition-colors" />
+                  </div>
+                  <input
+                    id="phone"
+                    name="phoneNumber"
+                    type="tel"
+                    required
+                    value={formData.phoneNumber || ''}
+                    onChange={handlePhoneNumberChange}
+                    className="block w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 text-white placeholder-white/50 transition-all duration-300 hover:bg-white/15"
+                    placeholder={getPhonePlaceholder(formData.countryCode || '+971')}
+                  />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-white/60">For SMS notifications</p>
+            </div>
+
             {/* Business Name */}
             <div className="group">
               <label htmlFor="businessName" className="block text-sm font-semibold text-white/90 mb-3">
@@ -221,6 +340,84 @@ export default function SignupPage() {
                   onChange={handleChange}
                   className="block w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 text-white placeholder-white/50 transition-all duration-300 hover:bg-white/15"
                   placeholder="Sarah's Beauty Studio"
+                />
+              </div>
+            </div>
+
+            {/* Address */}
+            <div className="group">
+              <label htmlFor="address" className="block text-sm font-semibold text-white/90 mb-3">
+                Business Address
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <MapPin className="h-5 w-5 text-white/50 group-focus-within:text-blue-400 transition-colors" />
+                </div>
+                <input
+                  id="address"
+                  name="address"
+                  type="text"
+                  required
+                  value={formData.address}
+                  onChange={handleChange}
+                  className="block w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 text-white placeholder-white/50 transition-all duration-300 hover:bg-white/15"
+                  placeholder="123 Main Street"
+                />
+              </div>
+            </div>
+
+            {/* City, State, Zip */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="group">
+                <label htmlFor="city" className="block text-sm font-semibold text-white/90 mb-3">
+                  City
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Map className="h-5 w-5 text-white/50 group-focus-within:text-blue-400 transition-colors" />
+                  </div>
+                  <input
+                    id="city"
+                    name="city"
+                    type="text"
+                    required
+                    value={formData.city}
+                    onChange={handleChange}
+                    className="block w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 text-white placeholder-white/50 transition-all duration-300 hover:bg-white/15"
+                    placeholder="Abu Dhabi"
+                  />
+                </div>
+              </div>
+
+              <div className="group">
+                <label htmlFor="state" className="block text-sm font-semibold text-white/90 mb-3">
+                  State
+                </label>
+                <input
+                  id="state"
+                  name="state"
+                  type="text"
+                  required
+                  value={formData.state}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 text-white placeholder-white/50 transition-all duration-300 hover:bg-white/15"
+                  placeholder="Abu Dhabi"
+                />
+              </div>
+
+              <div className="group">
+                <label htmlFor="zipCode" className="block text-sm font-semibold text-white/90 mb-3">
+                  Zip Code
+                </label>
+                <input
+                  id="zipCode"
+                  name="zipCode"
+                  type="text"
+                  required
+                  value={formData.zipCode}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 text-white placeholder-white/50 transition-all duration-300 hover:bg-white/15"
+                  placeholder="00000"
                 />
               </div>
             </div>

@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
       businessSlug: user.entrepreneurProfile?.slug || null,
       isActive: user.entrepreneurProfile?.isActive || false,
       createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString()
+      updatedAt: user.updatedAt.toISOString(),
+      timezone: user.entrepreneurProfile?.timezone || null,
     }
 
     return NextResponse.json({
@@ -57,7 +58,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Get user error:', error)
     
     if (error instanceof jwt.JsonWebTokenError) {
       return NextResponse.json(

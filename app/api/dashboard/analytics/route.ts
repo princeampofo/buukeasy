@@ -9,12 +9,30 @@ const calculateProgressWidth = (value: number, maxValue: number): string => {
   return `${(value / maxValue * 100).toFixed(1)}%`
 }
 
-// Helper function to format currency
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
+// Helper function to format currency in AED
+const formatAED = (amount: number): string => {
+  return new Intl.NumberFormat('en-AE', {
     style: 'currency',
-    currency: 'USD'
+    currency: 'AED',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
   }).format(amount)
+}
+
+// Helper function to format time in GST
+const formatGSTTime = (timeString: string): string => {
+  try {
+    const time = new Date(`2000-01-01T${timeString}`)
+    return time.toLocaleTimeString('en-AE', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Dubai'
+    })
+  } catch (error) {
+    // Fallback for invalid time strings
+    return timeString
+  }
 }
 
 // Helper function to calculate percentage change
@@ -74,17 +92,15 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       currentNoShows,
       currentBookingRate
     ] = await prisma.$transaction([
-      // Total revenue
-      prisma.booking.aggregate({
+      // Total revenue - using payment totalAmount which is already in AED
+      prisma.payment.aggregate({
         _sum: {
           totalAmount: true
         },
         where: {
-          ...baseWhereClause,
+          entrepreneurId: entrepreneurProfile.id,
           createdAt: { gte: startDate, lte: endDate },
-          payment: {
-            status: 'PAID'
-          }
+          status: 'PAID'
         }
       }),
 
@@ -138,16 +154,14 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       previousNoShows,
       previousBookingRate
     ] = await prisma.$transaction([
-      prisma.booking.aggregate({
+      prisma.payment.aggregate({
         _sum: {
           totalAmount: true
         },
         where: {
-          ...baseWhereClause,
+          entrepreneurId: entrepreneurProfile.id,
           createdAt: { gte: previousStartDate, lte: startDate },
-          payment: {
-            status: 'PAID'
-          }
+          status: 'PAID'
         }
       }),
 
@@ -200,7 +214,7 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       ? (previousBookingRate / (previousBookingRate + previousNoShows)) * 100 
       : 0
 
-    // Monthly revenue data (last 6 months)
+    // Monthly revenue data (last 6 months) - Updated to use Payment model
     const monthlyData = await prisma.$transaction(
       Array.from({ length: 6 }, (_, i) => {
         const monthEnd = new Date()
@@ -221,7 +235,11 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
             }
           },
           include: {
-            payment: true
+            payment: {
+              where: {
+                status: 'PAID'
+              }
+            }
           }
         })
       })
@@ -230,19 +248,20 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
     const monthlyRevenueData = monthlyData.map((bookings: any[], index: number) => {
       const monthEnd = new Date()
       monthEnd.setMonth(monthEnd.getMonth() - index)
-      const revenue = bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0)
+      // Sum totalAmount from payments (already in AED)
+      const revenue = bookings.reduce((sum, booking) => sum + (booking.payment?.totalAmount || 0), 0)
       return {
         month: monthEnd.toLocaleString('default', { month: 'short' }),
         revenue,
         appointments: bookings.length,
-        formattedRevenue: formatCurrency(revenue),
+        formattedRevenue: formatAED(revenue),
         progressWidth: calculateProgressWidth(revenue, Math.max(...monthlyData.map((m: any[]) => 
-          m.reduce((sum: any, b: { payment: { amount: any } }) => sum + (b.payment?.amount || 0), 0)
+          m.reduce((sum: any, b: { payment: { totalAmount: any } }) => sum + (b.payment?.totalAmount || 0), 0)
         )))
       }
     }).reverse()
 
-    // Top services
+    // Top services - Updated to use Payment model
     const topServices = await prisma.service.findMany({
       where: {
         entrepreneurId: entrepreneurProfile.id
@@ -253,7 +272,11 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
             appointmentDate: { gte: startDate, lte: endDate }
           },
           include: {
-            payment: true
+            payment: {
+              where: {
+                status: 'PAID'
+              }
+            }
           }
         }
       },
@@ -267,12 +290,13 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
 
     const totalBookings = currentAppointments || 1 // Avoid division by zero
     const topServicesData = topServices.map((service: { bookings: any[]; name: any }, index: number) => {
-      const revenue = service.bookings.reduce((sum, booking) => sum + (booking.payment?.amount || 0), 0)
+      // Sum totalAmount from payments (already in AED)
+      const revenue = service.bookings.reduce((sum, booking) => sum + (booking.payment?.totalAmount || 0), 0)
       return {
         name: service.name,
         bookings: service.bookings.length,
         revenue,
-        formattedRevenue: formatCurrency(revenue),
+        formattedRevenue: formatAED(revenue),
         percentage: (service.bookings.length / totalBookings * 100).toFixed(1),
         rank: index + 1
       }
@@ -291,12 +315,9 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       }
     })
 
-    const maxBookings = Math.max(...timeDistribution.map((slot: { _count: any }) => slot._count))
+    const maxBookings = Math.max(...timeDistribution.map((slot: { _count: any }) => slot._count), 1)
     const timeDistributionData = timeDistribution.map((slot: { appointmentTime: any; _count: number }) => ({
-      hour: new Date(`2000-01-01T${slot.appointmentTime}`).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        hour12: true
-      }),
+      hour: formatGSTTime(slot.appointmentTime),
       bookings: slot._count,
       progressWidth: calculateProgressWidth(slot._count, maxBookings)
     }))
@@ -306,27 +327,29 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       {
         type: 'New Clients',
         count: currentNewClients,
-        percentage: ((currentNewClients / totalBookings) * 100).toFixed(1),
+        percentage: parseFloat(((currentNewClients / totalBookings) * 100).toFixed(1)),
         progressWidth: calculateProgressWidth(currentNewClients, totalBookings),
         color: 'bg-blue-500'
       },
       {
         type: 'Returning Clients',
         count: totalBookings - currentNewClients,
-        percentage: (((totalBookings - currentNewClients) / totalBookings) * 100).toFixed(1),
+        percentage: parseFloat((((totalBookings - currentNewClients) / totalBookings) * 100).toFixed(1)),
         progressWidth: calculateProgressWidth(totalBookings - currentNewClients, totalBookings),
         color: 'bg-green-500'
       }
     ]
 
-    // Insights - handle empty data cases
+    // Insights - handle empty data cases and format in GST
+    const peakHourSlot = timeDistributionData.length > 0 
+      ? timeDistributionData.reduce(
+          (peak: { hour: string; bookings: number; progressWidth: string }, current: { hour: string; bookings: number; progressWidth: string }) => 
+            current.bookings > peak.bookings ? current : peak
+        )
+      : null
+
     const insights = {
-      peakHours: timeDistributionData.length > 0 
-        ? timeDistributionData.reduce(
-            (peak: { hour: string; bookings: number; progressWidth: string }, current: { hour: string; bookings: number; progressWidth: string }) => 
-              current.bookings > peak.bookings ? current : peak
-          )?.hour
-        : 'N/A',
+      peakHours: peakHourSlot?.hour || 'N/A',
       topService: topServicesData[0]?.name || 'N/A',
       growthRate: calculateChange(
         currentRevenue._sum?.totalAmount || 0,
@@ -335,11 +358,11 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       totalClients: currentNewClients
     }
 
-    // Format overview stats
+    // Format overview stats with AED currency (totalAmount is already in AED)
     const overview = [
       {
         name: 'Total Revenue',
-        value: formatCurrency(currentRevenue._sum?.totalAmount || 0),
+        value: formatAED(currentRevenue._sum?.totalAmount || 0),
         ...calculateChange(currentRevenue._sum?.totalAmount || 0, previousRevenue._sum?.totalAmount || 0),
         icon: 'DollarSign',
         period: `Last ${period} days`
@@ -360,9 +383,9 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       },
       {
         name: 'Average Rating',
-        value: '0.0',  // Removed rating since we removed the Review model
+        value: '0.0',  // Placeholder since rating model is removed
         change: '+0%',
-        changeType: 'increase',
+        changeType: 'increase' as const,
         icon: 'Star',
         period: `Last ${period} days`
       },

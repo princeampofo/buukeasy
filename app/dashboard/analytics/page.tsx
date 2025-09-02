@@ -82,6 +82,43 @@ const iconMap = {
   TrendingUp
 }
 
+// Helper function to format AED currency
+const formatAED = (amount: number) => {
+  return new Intl.NumberFormat('en-AE', {
+    style: 'currency',
+    currency: 'AED',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(amount)
+}
+
+// Helper function to format time in GST
+const formatGSTTime = (timeString: string) => {
+  // Handle both 12-hour format (2-4 PM) and 24-hour format
+  if (timeString.includes('-')) {
+    // Range format like "2-4 PM"
+    return timeString + ' GST'
+  }
+  
+  // Single time format
+  const time = new Date(`1970-01-01T${timeString}:00`)
+  return time.toLocaleTimeString('en-AE', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }) + ' GST'
+}
+
+// Helper function to format stat values properly
+const formatStatValue = (statName: string, value: string) => {
+  // Convert revenue values from $ to AED format
+  if (statName.toLowerCase().includes('revenue') && value.includes('$')) {
+    const numericValue = parseFloat(value.replace(/[$,]/g, ''))
+    return formatAED(numericValue)
+  }
+  return value
+}
+
 export default function AnalyticsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('30')
   const [data, setData] = useState<AnalyticsData | null>(null)
@@ -196,7 +233,7 @@ export default function AnalyticsPage() {
               Analytics & Reports
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Track your business performance and growth metrics
+              Track your business performance and growth metrics (revenue in AED, times in GST)
             </p>
           </div>
           <div className="mt-4 flex space-x-3 md:mt-0 md:ml-4">
@@ -240,7 +277,7 @@ export default function AnalyticsPage() {
                           </dt>
                           <dd className="flex items-baseline">
                             <div className="text-2xl font-semibold text-gray-900">
-                              {item.value}
+                              {formatStatValue(item.name, item.value)}
                             </div>
                             <div className={`ml-2 flex items-baseline text-sm font-semibold ${
                               item.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
@@ -255,6 +292,9 @@ export default function AnalyticsPage() {
                           </dd>
                           <dd className="text-xs text-gray-500 mt-1">
                             {item.period}
+                            {item.name.toLowerCase().includes('revenue') && (
+                              <span className="text-xs text-blue-600 ml-1">(AED)</span>
+                            )}
                           </dd>
                         </dl>
                       </div>
@@ -274,6 +314,7 @@ export default function AnalyticsPage() {
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Revenue & Appointments Trend
               </h3>
+              <p className="text-xs text-gray-500">Revenue amounts shown in AED</p>
             </div>
             <div className="px-6 py-4">
               <div className="space-y-4">
@@ -292,7 +333,10 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium text-gray-900">
-                        {item.formattedRevenue}
+                        {item.formattedRevenue.includes('$') ? 
+                          formatAED(parseFloat(item.formattedRevenue.replace(/[$,]/g, ''))) : 
+                          item.formattedRevenue
+                        }
                       </div>
                       <div className="text-xs text-gray-500">
                         {item.appointments} appointments
@@ -310,6 +354,7 @@ export default function AnalyticsPage() {
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Top Services
               </h3>
+              <p className="text-xs text-gray-500">Revenue amounts shown in AED</p>
             </div>
             <div className="px-6 py-4">
               <div className="space-y-4">
@@ -330,7 +375,10 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium text-gray-900">
-                        {service.formattedRevenue}
+                        {service.formattedRevenue.includes('$') ? 
+                          formatAED(parseFloat(service.formattedRevenue.replace(/[$,]/g, ''))) : 
+                          service.formattedRevenue
+                        }
                       </div>
                       <div className="text-xs text-gray-500">
                         {service.percentage}% of total
@@ -390,14 +438,15 @@ export default function AnalyticsPage() {
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Popular Time Slots
               </h3>
+              <p className="text-xs text-gray-500">Times shown in Gulf Standard Time (GST)</p>
             </div>
             <div className="px-6 py-4">
               <div className="space-y-3">
                 {data.timeDistribution.map((slot) => (
                   <div key={slot.hour} className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="text-sm font-medium text-gray-900 w-12">
-                        {slot.hour}
+                      <div className="text-sm font-medium text-gray-900 w-20">
+                        {formatGSTTime(slot.hour)}
                       </div>
                       <div className="flex-1 bg-gray-200 rounded-full h-2 w-32">
                         <div 
@@ -429,11 +478,13 @@ export default function AnalyticsPage() {
               <div className="bg-blue-50 p-4 rounded-lg">
                 <div className="flex items-center">
                   <Clock className="h-5 w-5 text-blue-600 mr-2" />
-                  <h4 className="text-sm font-medium text-blue-900">Peak Hours</h4>
+                  <h4 className="text-sm font-medium text-blue-900">Peak Hours (GST)</h4>
                 </div>
-                <p className="mt-2 text-2xl font-bold text-blue-600">{data.insights.peakHours}</p>
+                <p className="mt-2 text-2xl font-bold text-blue-600">
+                  {formatGSTTime(data.insights.peakHours)}
+                </p>
                 <p className="text-sm text-blue-700">
-                  Most bookings occur during afternoon hours
+                  Most bookings occur during these hours
                 </p>
               </div>
 
@@ -457,7 +508,7 @@ export default function AnalyticsPage() {
                 </div>
                 <p className="mt-2 text-2xl font-bold text-purple-600">{data.insights.growthRate}</p>
                 <p className="text-sm text-purple-700">
-                  Monthly revenue growth
+                  Monthly revenue growth (AED)
                 </p>
               </div>
             </div>
@@ -474,7 +525,7 @@ export default function AnalyticsPage() {
               <div>
                 <h4 className="text-sm font-medium text-yellow-800 mb-2">Revenue Opportunities</h4>
                 <ul className="text-sm text-yellow-700 space-y-1">
-                  <li>• Consider raising prices for high-demand services</li>
+                  <li>• Consider raising prices for high-demand services (in AED)</li>
                   <li>• Promote less popular services during peak hours</li>
                   <li>• Offer package deals to increase average order value</li>
                 </ul>
@@ -482,7 +533,7 @@ export default function AnalyticsPage() {
               <div>
                 <h4 className="text-sm font-medium text-yellow-800 mb-2">Operational Improvements</h4>
                 <ul className="text-sm text-yellow-700 space-y-1">
-                  <li>• Add more availability during {data.insights.peakHours} peak hours</li>
+                  <li>• Add more availability during {formatGSTTime(data.insights.peakHours)} peak hours</li>
                   <li>• Send reminders to reduce no-show rate</li>
                   <li>• Focus marketing on bringing back former clients</li>
                 </ul>
@@ -497,6 +548,7 @@ export default function AnalyticsPage() {
             <h3 className="text-lg leading-6 font-medium text-gray-900">
               Export Reports
             </h3>
+            <p className="text-xs text-gray-500">All exported data will show revenue in AED and times in GST</p>
           </div>
           <div className="px-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -506,7 +558,7 @@ export default function AnalyticsPage() {
                 className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 <BarChart3 className="h-4 w-4 mr-2" />
-                Revenue Report
+                Revenue Report (AED)
               </button>
               <button
                 type="button"
@@ -522,8 +574,29 @@ export default function AnalyticsPage() {
                 className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 <Calendar className="h-4 w-4 mr-2" />
-                Service Report
+                Service Report (GST)
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Regional Information */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <Clock className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                Regional Settings
+              </h3>
+              <div className="mt-2 text-sm text-blue-700">
+                <p>
+                  • All revenue figures are displayed in UAE Dirhams (AED)<br/>
+                  • All times are shown in Gulf Standard Time (GST, UTC+4)<br/>
+                  • Export files will maintain AED and GST formatting for consistency
+                </p>
+              </div>
             </div>
           </div>
         </div>

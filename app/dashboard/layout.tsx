@@ -25,7 +25,7 @@ const navigation = [
   { name: 'Appointments', href: '/dashboard/appointments', icon: Calendar },
   { name: 'Services', href: '/dashboard/services', icon: Users },
   { name: 'Availability', href: '/dashboard/availability', icon: Clock },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  // { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
@@ -207,7 +207,7 @@ export default function DashboardLayout({
         <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4">
             <Calendar className="h-8 w-8 text-blue-600" />
-            <span className="ml-2 text-2xl font-bold text-gray-900">BuukMe</span>
+            <span className="ml-2 text-2xl font-bold text-gray-900">BuukEasy</span>
           </div>
           
           <nav className="mt-8 flex-1 px-2 space-y-1">

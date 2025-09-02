@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { withAuth } from '@/lib/auth-middleware'
 import type { UserData } from '@/types/auth'
-import { use } from 'react'
 
 export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
   try {
@@ -42,11 +41,12 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
     // Format response
     const businessSettings = {
       businessName: entrepreneurProfile?.businessName || '',
-      ownerName: userDataFromDB.firstName + ' ' + userDataFromDB.lastName,
+      ownerFirstName: userDataFromDB.firstName || '',
+      ownerLastName: userDataFromDB.lastName || '',
       email: userDataFromDB.email,
       phone: userDataFromDB.phone || '',
       slug: entrepreneurProfile?.slug || '',
-      description: entrepreneurProfile?.description || '',
+      businessDescription: entrepreneurProfile?.description || '',
       address: entrepreneurProfile?.address || '',
       city: entrepreneurProfile?.city || '',
       state: entrepreneurProfile?.state || '',
@@ -57,7 +57,6 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
 
     return NextResponse.json(businessSettings)
   } catch (error) {
-    console.error('Business Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch business settings' },
       { status: 500 }
@@ -79,39 +78,39 @@ export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
 
     const data = await request.json()
 
-    // Update or create entrepreneur profile
-    const updatedProfile = await prisma.entrepreneurProfile.upsert({
-      where: {
-        userId: userId
-      },
-      update: {
+  //  update both entrepreneur profile and user
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: data.ownerFirstName,
+        lastName: data.ownerLastName,
+        email: data.email,
+        phone: data.phone
+      }
+    })
+    const updatedProfile = await prisma.entrepreneurProfile.update({
+      where: { userId: userId },
+      data: {
         businessName: data.businessName,
         slug: data.slug,
-        description: data.description,
+        description: data.businessDescription,
         address: data.address,
         city: data.city,
         state: data.state,
         zipCode: data.zipCode,
         timezone: data.timezone,
         currency: data.currency
-      },
-      create: {
-        userId: user.userId,
-        businessName: data.businessName,
-        slug: data.slug,
-        description: data.description || '',
-        address: data.address || '',
-        city: data.city || '',
-        state: data.state || '',
-        zipCode: data.zipCode || '',
-        timezone: data.timezone || 'Eastern Time',
-        currency: data.currency || 'USD'
       }
     })
 
-    return NextResponse.json(updatedProfile)
+    return NextResponse.json({
+      success: true,
+      message: 'Business settings updated successfully',
+      user: updatedUser,
+      profile: updatedProfile
+    })
+
   } catch (error) {
-    console.error('Update Business Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to update business settings' },
       { status: 500 }

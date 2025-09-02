@@ -31,7 +31,6 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
       where: { entrepreneurId: entrepreneurProfile.id }
     })
 
-    console.log('Notification Settings:', settings)
     if (!settings) {
       // Return default settings if none exist
       return NextResponse.json({
@@ -48,7 +47,6 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
 
     return NextResponse.json(settings)
   } catch (error) {
-    console.error('Notification Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch notification settings' },
       { status: 500 }
@@ -80,7 +78,6 @@ export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
     }
     
     const data = await request.json()
-    console.log('Notification Settings Data:', data)
     // Update or create notification settings
     const settings = await prisma.notificationSettings.upsert({
       where: {
@@ -109,11 +106,8 @@ export const PUT = withAuth(async (request: NextRequest, user: UserData) => {
       }
     })
 
-    console.log('Updated Notification Settings:', settings)
-
     return NextResponse.json(settings)
   } catch (error) {
-    console.error('Update Notification Settings API Error:', error)
     return NextResponse.json(
       { error: 'Failed to update notification settings' },
       { status: 500 }

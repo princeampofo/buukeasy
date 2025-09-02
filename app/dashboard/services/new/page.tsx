@@ -11,7 +11,10 @@ import {
   DollarSign,
   AlertCircle,
   Upload,
-  X
+  X,
+  Home,
+  Store,
+  Calendar
 } from 'lucide-react'
 
 interface ServiceFormData {
@@ -19,14 +22,18 @@ interface ServiceFormData {
   description: string
   category: string
   duration: number
-  price: number
-  requiresDeposit: boolean
-  depositAmount: number
-  maxAdvanceBooking: number
-  minAdvanceBooking: number
-  bufferTime: number
-  instructions: string
+  specialInstructions: string
   image: File | null
+  offersHomeService: boolean
+  offersInStoreService: boolean
+  homeServicePrice: number
+  homeServiceDeposit: number
+  homeServiceBufferTime: number
+  inStoreServicePrice: number
+  inStoreServiceDeposit: number
+  inStoreServiceBufferTime: number
+  minAdvanceHours: number
+  maxAdvanceDays: number
 }
 
 const categories = [
@@ -47,6 +54,16 @@ const formatCategory = (category: string) => {
     .join(' ')
 }
 
+// Helper function to format AED currency
+const formatAED = (amount: number) => {
+  return new Intl.NumberFormat('en-AE', {
+    style: 'currency',
+    currency: 'AED',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(amount)
+}
+
 export default function NewServicePage() {
   const router = useRouter()
   const { user } = useAuthContext()
@@ -59,14 +76,18 @@ export default function NewServicePage() {
     description: '',
     category: categories[0],
     duration: 60,
-    price: 0,
-    requiresDeposit: false,
-    depositAmount: 0,
-    maxAdvanceBooking: 30,
-    minAdvanceBooking: 1,
-    bufferTime: 0,
-    instructions: '',
-    image: null
+    specialInstructions: '',
+    image: null,
+    offersHomeService: false,
+    offersInStoreService: false,
+    homeServicePrice: 0,
+    homeServiceDeposit: 0,
+    homeServiceBufferTime: 0,
+    inStoreServicePrice: 0,
+    inStoreServiceDeposit: 0,
+    inStoreServiceBufferTime: 0,
+    minAdvanceHours: 48,
+    maxAdvanceDays: 30
   })
 
   const handleInputChange = (field: keyof ServiceFormData, value: any) => {
@@ -84,35 +105,6 @@ export default function NewServicePage() {
     }
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setErrors(prev => ({
-          ...prev,
-          image: 'Image size must be less than 5MB'
-        }))
-        return
-      }
-
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-
-      handleInputChange('image', file)
-    }
-  }
-
-  const removeImage = () => {
-    setImagePreview(null)
-    handleInputChange('image', null)
-    // Reset file input
-    const fileInput = document.getElementById('image-upload') as HTMLInputElement
-    if (fileInput) fileInput.value = ''
-  }
-
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
@@ -128,20 +120,32 @@ export default function NewServicePage() {
       newErrors.duration = 'Duration must be greater than 0'
     }
 
-    if (formData.price < 0) {
-      newErrors.price = 'Price cannot be negative'
+    if (formData.minAdvanceHours <= 0) {
+      newErrors.minAdvanceHours = 'Minimum advance hours must be greater than 0'
     }
 
-    if (formData.requiresDeposit && formData.depositAmount <= 0) {
-      newErrors.depositAmount = 'Deposit amount must be greater than 0'
+    if (formData.maxAdvanceDays <= 0) {
+      newErrors.maxAdvanceDays = 'Maximum advance days must be greater than 0'
     }
 
-    if (formData.requiresDeposit && formData.depositAmount > formData.price) {
-      newErrors.depositAmount = 'Deposit cannot be more than service price'
+    if (!formData.offersHomeService && !formData.offersInStoreService) {
+      newErrors.serviceType = 'Please select at least one service location option'
     }
 
-    if (formData.maxAdvanceBooking <= formData.minAdvanceBooking) {
-      newErrors.maxAdvanceBooking = 'Max advance booking must be greater than min advance booking'
+    if (formData.offersHomeService && formData.homeServicePrice <= 0) {
+      newErrors.homeServicePrice = 'Home service price must be greater than 0'
+    }
+
+    if (formData.offersInStoreService && formData.inStoreServicePrice <= 0) {
+      newErrors.inStoreServicePrice = 'In-store service price must be greater than 0'
+    }
+
+    if (formData.offersHomeService && formData.homeServiceDeposit > formData.homeServicePrice) {
+      newErrors.homeServiceDeposit = 'Home service deposit cannot be more than service price'
+    }
+
+    if (formData.offersInStoreService && formData.inStoreServiceDeposit > formData.inStoreServicePrice) {
+      newErrors.inStoreServiceDeposit = 'In-store service deposit cannot be more than service price'
     }
 
     setErrors(newErrors)
@@ -160,22 +164,15 @@ export default function NewServicePage() {
       return
     }
 
-    if (!user.businessSlug) {
-      setErrors({ submit: 'Business profile not found' })
-      return
-    }
-
     setIsLoading(true)
 
     try {
       const submitData = new FormData()
 
-      // Add entrepreneurId to form data using the business profile ID
-      submitData.append('entrepreneurId', user.businessSlug)
-
       Object.entries(formData).forEach(([key, value]) => {
         if (key === 'image' && value instanceof File) {
-          submitData.append(key, value)
+          // Skip image for now
+          // submitData.append(key, value)
         } else if (key !== 'image') {
           submitData.append(key, String(value))
         }
@@ -229,7 +226,7 @@ export default function NewServicePage() {
             Add New Service
           </h2>
           <p className="mt-1 text-sm text-gray-500">
-            Create a new service for your business
+            Create a new service for your business (prices in UAE Dirhams)
           </p>
         </div>
 
@@ -302,79 +299,27 @@ export default function NewServicePage() {
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
                     }`}
-                  placeholder="Describe your service..."
+                  placeholder="Brief description of your service..."
                 />
                 {errors.description && (
                   <p className="mt-1 text-sm text-red-600">{errors.description}</p>
                 )}
               </div>
-
-              {/* Service Image */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Service Image
-                </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={imagePreview}
-                        alt="Service preview"
-                        className="max-h-48 rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={removeImage}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-1 text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="flex text-sm text-gray-600">
-                        <label
-                          htmlFor="image-upload"
-                          className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                        >
-                          <span>Upload a file</span>
-                          <input
-                            id="image-upload"
-                            name="image-upload"
-                            type="file"
-                            className="sr-only"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                          />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        PNG, JPG, GIF up to 5MB
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {errors.image && (
-                  <p className="mt-1 text-sm text-red-600">{errors.image}</p>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Pricing & Duration */}
+          {/* Service Duration & Settings */}
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Pricing & Duration
+                Service Duration & Settings
               </h3>
             </div>
             <div className="px-6 py-4 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (minutes) *
+                    Service Duration (minutes) *
                   </label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -392,148 +337,276 @@ export default function NewServicePage() {
                   {errors.duration && (
                     <p className="mt-1 text-sm text-red-600">{errors.duration}</p>
                   )}
+                  <p className="mt-1 text-xs text-gray-500">How long the actual service takes</p>
                 </div>
 
                 <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-                    Price ($)
+                  <label htmlFor="specialInstructions" className="block text-sm font-medium text-gray-700 mb-2">
+                    Special Instructions
                   </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <input
-                      type="number"
-                      id="price"
-                      min="0"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.price ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                        }`}
-                    />
-                  </div>
-                  {errors.price && (
-                    <p className="mt-1 text-sm text-red-600">{errors.price}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">Set to 0 for free services</p>
-                </div>
-
-                <div>
-                  <label htmlFor="bufferTime" className="block text-sm font-medium text-gray-700 mb-2">
-                    Buffer Time (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    id="bufferTime"
-                    min="0"
-                    step="1"
-                    value={formData.bufferTime}
-                    onChange={(e) => handleInputChange('bufferTime', parseInt(e.target.value) || 0)}
+                  <textarea
+                    id="specialInstructions"
+                    rows={3}
+                    value={formData.specialInstructions}
+                    onChange={(e) => handleInputChange('specialInstructions', e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Any special instructions for clients..."
+                    // disable resizing
+                    style={{ resize: 'none' }}
                   />
-                  <p className="mt-1 text-xs text-gray-500">Time between appointments</p>
                 </div>
               </div>
 
-              {/* Deposit Settings */}
-              <div>
-                <div className="flex items-center mb-4">
-                  <input
-                    type="checkbox"
-                    id="requiresDeposit"
-                    checked={formData.requiresDeposit}
-                    onChange={(e) => handleInputChange('requiresDeposit', e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="requiresDeposit" className="ml-2 block text-sm text-gray-700">
-                    Require deposit for booking
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="minAdvanceHours" className="block text-sm font-medium text-gray-700 mb-2">
+                    Minimum Hours in Advance *
                   </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input
+                      type="number"
+                      id="minAdvanceHours"
+                      min="1"
+                      step="1"
+                      value={formData.minAdvanceHours}
+                      onChange={(e) => handleInputChange('minAdvanceHours', parseInt(e.target.value) || 0)}
+                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.minAdvanceHours ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Minimum notice required for bookings</p>
+                  {errors.minAdvanceHours && (
+                    <p className="mt-1 text-sm text-red-600">{errors.minAdvanceHours}</p>
+                  )}
                 </div>
 
-                {formData.requiresDeposit && (
-                  <div className="ml-6">
-                    <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700 mb-2">
-                      Deposit Amount ($)
-                    </label>
-                    <div className="max-w-xs">
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <input
-                          type="number"
-                          id="depositAmount"
-                          min="0"
-                          step="0.01"
-                          value={formData.depositAmount}
-                          onChange={(e) => handleInputChange('depositAmount', parseFloat(e.target.value) || 0)}
-                          className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.depositAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                            }`}
-                        />
-                      </div>
-                      {errors.depositAmount && (
-                        <p className="mt-1 text-sm text-red-600">{errors.depositAmount}</p>
-                      )}
-                    </div>
+                <div>
+                  <label htmlFor="maxAdvanceDays" className="block text-sm font-medium text-gray-700 mb-2">
+                    Maximum Days in Advance *
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input
+                      type="number"
+                      id="maxAdvanceDays"
+                      min="1"
+                      step="1"
+                      value={formData.maxAdvanceDays}
+                      onChange={(e) => handleInputChange('maxAdvanceDays', parseInt(e.target.value) || 0)}
+                      className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.maxAdvanceDays ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                    />
                   </div>
-                )}
+                  <p className="mt-1 text-xs text-gray-500">How far ahead clients can book</p>
+                  {errors.maxAdvanceDays && (
+                    <p className="mt-1 text-sm text-red-600">{errors.maxAdvanceDays}</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Booking Settings */}
+          {/* Service Location & Pricing */}
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Booking Settings
+                Service Location & Pricing
               </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                <strong>Note:</strong> All prices are in UAE Dirhams (AED). The booking deposit is what clients pay upfront to hold their appointment and reduce no-shows.
+              </p>
             </div>
             <div className="px-6 py-4 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="minAdvanceBooking" className="block text-sm font-medium text-gray-700 mb-2">
-                    Minimum Advance Booking (hours)
-                  </label>
-                  <input
-                    type="number"
-                    id="minAdvanceBooking"
-                    min="0"
-                    value={formData.minAdvanceBooking}
-                    onChange={(e) => handleInputChange('minAdvanceBooking', parseInt(e.target.value) || 0)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">How far in advance clients must book</p>
+              {/* Service Location Options */}
+              <div className="space-y-4">
+                <div className="text-sm font-medium text-gray-700 mb-3">
+                  Where do you offer this service? *
                 </div>
+                
+                {errors.serviceType && (
+                  <p className="text-sm text-red-600">{errors.serviceType}</p>
+                )}
 
-                <div>
-                  <label htmlFor="maxAdvanceBooking" className="block text-sm font-medium text-gray-700 mb-2">
-                    Maximum Advance Booking (days)
-                  </label>
-                  <input
-                    type="number"
-                    id="maxAdvanceBooking"
-                    min="1"
-                    value={formData.maxAdvanceBooking}
-                    onChange={(e) => handleInputChange('maxAdvanceBooking', parseInt(e.target.value) || 1)}
-                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.maxAdvanceBooking ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
-                  />
-                  {errors.maxAdvanceBooking && (
-                    <p className="mt-1 text-sm text-red-600">{errors.maxAdvanceBooking}</p>
+                {/* Home Service Option */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      id="offersHomeService"
+                      checked={formData.offersHomeService}
+                      onChange={(e) => handleInputChange('offersHomeService', e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="offersHomeService" className="ml-3 flex items-center text-sm font-medium text-gray-700">
+                      <Home className="h-4 w-4 mr-2 text-gray-400" />
+                      Home Service
+                    </label>
+                  </div>
+
+                  {formData.offersHomeService && (
+                    <div className="ml-7 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="homeServicePrice" className="block text-sm font-medium text-gray-700 mb-2">
+                            Home Service Price (AED) *
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-3 text-gray-400 text-sm">AED</span>
+                            <input
+                              type="number"
+                              id="homeServicePrice"
+                              min="0"
+                              step="0.01"
+                              value={formData.homeServicePrice}
+                              onChange={(e) => handleInputChange('homeServicePrice', parseFloat(e.target.value) || 0)}
+                              className={`block w-full pl-12 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.homeServicePrice ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                                }`}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          {errors.homeServicePrice && (
+                            <p className="mt-1 text-sm text-red-600">{errors.homeServicePrice}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label htmlFor="homeServiceDeposit" className="block text-sm font-medium text-gray-700 mb-2">
+                            Booking Deposit (AED)
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-3 text-gray-400 text-sm">AED</span>
+                            <input
+                              type="number"
+                              id="homeServiceDeposit"
+                              min="0"
+                              step="0.01"
+                              value={formData.homeServiceDeposit}
+                              onChange={(e) => handleInputChange('homeServiceDeposit', parseFloat(e.target.value) || 0)}
+                              className={`block w-full pl-12 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.homeServiceDeposit ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                                }`}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          {errors.homeServiceDeposit && (
+                            <p className="mt-1 text-sm text-red-600">{errors.homeServiceDeposit}</p>
+                          )}
+                          <p className="mt-1 text-xs text-gray-500">Optional deposit required for booking</p>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="homeServiceBufferTime" className="block text-sm font-medium text-gray-700 mb-2">
+                          Buffer Time (minutes)
+                        </label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <input
+                            type="number"
+                            id="homeServiceBufferTime"
+                            min="0"
+                            step="1"
+                            value={formData.homeServiceBufferTime}
+                            onChange={(e) => handleInputChange('homeServiceBufferTime', parseInt(e.target.value) || 0)}
+                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">Extra time between home service appointments (for travel, setup, etc.)</p>
+                      </div>
+                    </div>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">How far in advance clients can book</p>
                 </div>
-              </div>
 
-              <div>
-                <label htmlFor="instructions" className="block text-sm font-medium text-gray-700 mb-2">
-                  Special Instructions
-                </label>
-                <textarea
-                  id="instructions"
-                  rows={3}
-                  value={formData.instructions}
-                  onChange={(e) => handleInputChange('instructions', e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Any special instructions for clients (preparation, what to bring, etc.)"
-                />
+                {/* In-Store Service Option */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      id="offersInStoreService"
+                      checked={formData.offersInStoreService}
+                      onChange={(e) => handleInputChange('offersInStoreService', e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="offersInStoreService" className="ml-3 flex items-center text-sm font-medium text-gray-700">
+                      <Store className="h-4 w-4 mr-2 text-gray-400" />
+                      In-Store Service
+                    </label>
+                  </div>
+
+                  {formData.offersInStoreService && (
+                    <div className="ml-7 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="inStoreServicePrice" className="block text-sm font-medium text-gray-700 mb-2">
+                            In-Store Service Price (AED) *
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-3 text-gray-400 text-sm">AED</span>
+                            <input
+                              type="number"
+                              id="inStoreServicePrice"
+                              min="0"
+                              step="0.01"
+                              value={formData.inStoreServicePrice}
+                              onChange={(e) => handleInputChange('inStoreServicePrice', parseFloat(e.target.value) || 0)}
+                              className={`block w-full pl-12 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.inStoreServicePrice ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                                }`}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          {errors.inStoreServicePrice && (
+                            <p className="mt-1 text-sm text-red-600">{errors.inStoreServicePrice}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label htmlFor="inStoreServiceDeposit" className="block text-sm font-medium text-gray-700 mb-2">
+                            Booking Deposit (AED)
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-3 text-gray-400 text-sm">AED</span>
+                            <input
+                              type="number"
+                              id="inStoreServiceDeposit"
+                              min="0"
+                              step="0.01"
+                              value={formData.inStoreServiceDeposit}
+                              onChange={(e) => handleInputChange('inStoreServiceDeposit', parseFloat(e.target.value) || 0)}
+                              className={`block w-full pl-12 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.inStoreServiceDeposit ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                                }`}
+                              placeholder="0.00"
+                            />
+                          </div>
+                          {errors.inStoreServiceDeposit && (
+                            <p className="mt-1 text-sm text-red-600">{errors.inStoreServiceDeposit}</p>
+                          )}
+                          <p className="mt-1 text-xs text-gray-500">Optional deposit required for booking</p>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="inStoreServiceBufferTime" className="block text-sm font-medium text-gray-700 mb-2">
+                          Buffer Time (minutes)
+                        </label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <input
+                            type="number"
+                            id="inStoreServiceBufferTime"
+                            min="0"
+                            step="1"
+                            value={formData.inStoreServiceBufferTime}
+                            onChange={(e) => handleInputChange('inStoreServiceBufferTime', parseInt(e.target.value) || 0)}
+                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">Extra time between in-store appointments (for cleanup, preparation, etc.)</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

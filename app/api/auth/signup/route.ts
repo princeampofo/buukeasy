@@ -11,7 +11,12 @@ const signupSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
   lastName: z.string().min(1, 'Last name is required').max(50, 'Last name too long'),
   email: z.string().email('Invalid email address'),
+  phone: z.string().regex(/^\+[1-9]\d{6,14}$/, 'Phone must be a valid number in E.164 format'),
   businessName: z.string().min(1, 'Business name is required').max(100, 'Business name too long'),
+  address: z.string().min(1, 'Address is required').max(200, 'Address too long'),
+  city: z.string().min(1, 'City is required').max(100, 'City too long'),
+  state: z.string().min(1, 'State is required').max(50, 'State too long'),
+  zipCode: z.string().min(5, 'Zip code must be at least 5 characters').max(10, 'Zip code too long'),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
@@ -52,7 +57,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     const validatedData = signupSchema.parse(body)
-    const { firstName, lastName, email, businessName, password } = validatedData
+    const { firstName, lastName, email, phone, businessName, address, city, state, zipCode, password } = validatedData
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -81,6 +86,7 @@ export async function POST(request: NextRequest) {
           firstName: firstName,
           lastName: lastName,
           email: email.toLowerCase(),
+          phone: phone,
           password: hashedPassword,
           role: 'ENTREPRENEUR',
           isVerified: false,
@@ -92,13 +98,16 @@ export async function POST(request: NextRequest) {
         data: {
           userId: user.id,
           businessName,
+          address,
+          city,
+          state,
+          zipCode,
           slug,
           isActive: true,
           isVerified: false,
-          timezone: 'Eastern Time',
-          currency: 'USD',
           averageRating: 0,
           totalReviews: 0,
+          timezone: 'Asia/Dubai', // Default timezone, can be updated later
         },
       })
 
@@ -131,20 +140,25 @@ export async function POST(request: NextRequest) {
       { expiresIn: '7d' }
     )
 
-
     // Create standardized user data
     const userData = {
       id: result.user.id,
       firstName: result.user.firstName,
       lastName: result.user.lastName,
       email: result.user.email,
+      phone: result.user.phone,
       role: result.user.role,
       isVerified: result.user.isVerified,
       businessName: result.profile.businessName,
       businessSlug: result.profile.slug,
+      address: result.profile.address,
+      city: result.profile.city,
+      state: result.profile.state,
+      zipCode: result.profile.zipCode,
       isActive: result.profile.isActive,
       createdAt: result.user.createdAt.toISOString(),
-      updatedAt: result.user.updatedAt.toISOString()
+      updatedAt: result.user.updatedAt.toISOString(),
+      timezone: result.profile.timezone || null,
     }
 
     // Set HTTP-only cookie with the token
@@ -164,7 +178,6 @@ export async function POST(request: NextRequest) {
     return response
 
   } catch (error) {
-    console.error('Signup error:', error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

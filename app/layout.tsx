@@ -16,18 +16,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'BookMySlot - Revolutionary Booking Platform for Beauty Professionals',
+  title: 'BuukEasy - Simplifying Your Booking Experience',
   description: 'The most intuitive and powerful scheduling platform for beauty & wellness professionals. Lightning-fast setup, smart automation, and always free. Transform your booking experience today.',
   keywords: 'beauty booking, appointment scheduling, salon software, beauty professionals, wellness booking, free scheduling app',
   openGraph: {
-    title: 'BookMySlot - Revolutionary Booking Platform for Beauty Professionals',
+    title: 'BuukEasy - Simplifying Your Booking Experience',
     description: 'Lightning-fast setup, smart automation, and always free. Transform your booking experience today.',
     type: 'website',
     locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BookMySlot - Revolutionary Booking Platform for Beauty Professionals',
+    title: 'BuukEasy - Simplifying Your Booking Experience',
     description: 'Lightning-fast setup, smart automation, and always free. Transform your booking experience today.',
   },
   robots: 'index, follow',

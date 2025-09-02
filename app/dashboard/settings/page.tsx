@@ -16,7 +16,8 @@ import { toast } from 'sonner'
 
 interface BusinessSettings {
   businessName: string
-  ownerName: string
+  ownerFirstName: string
+  ownerLastName: string
   email: string
   phone: string
   address: string
@@ -59,10 +60,11 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
   
-  // Business settings state
+  // Business settings state - Updated with GST/AED defaults
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings>({
     businessName: '',
-    ownerName: '',
+    ownerFirstName: '',
+    ownerLastName: '',
     email: '',
     phone: '',
     address: '',
@@ -71,8 +73,8 @@ export default function SettingsPage() {
     zipCode: '',
     website: '',
     businessDescription: '',
-    timezone: 'Eastern Time',
-    currency: 'USD'
+    timezone: 'Asia/Dubai',
+    currency: 'AED'
   })
 
   // Notification settings state
@@ -140,7 +142,10 @@ export default function SettingsPage() {
           case 'business':
             setBusinessSettings(prevSettings => ({
               ...prevSettings,
-              ...data
+              ...data,
+              // Ensure Asia/Dubai defaults are maintained
+              timezone: data.timezone || 'Asia/Dubai',
+              currency: data.currency || 'AED'
             }))
             break
           case 'notifications':
@@ -151,11 +156,9 @@ export default function SettingsPage() {
             break
         }
       } else {
-        console.error('Failed to fetch settings data')
         toast.error('Failed to load settings data')
       }
     } catch (error) {
-      console.error('Error fetching settings:', error)
       toast.error('Failed to load settings data')
     } finally {
       setLoading(false)
@@ -242,7 +245,6 @@ export default function SettingsPage() {
         toast.error(errorData.message || 'Failed to save settings. Please try again.')
       }
     } catch (error) {
-      console.error('Save error:', error)
       toast.error('Failed to save settings. Please try again.')
     }
   }
@@ -303,23 +305,33 @@ export default function SettingsPage() {
                 ) : (
                   <>
                     <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                      <div className="sm:col-span-4">
+                     <div className="sm:col-span-4">
                         <Label htmlFor="businessName">Business Name</Label>
                         <Input
                           type="text"
                           id="businessName"
                           value={businessSettings.businessName}
-                          onChange={(e) => handleBusinessSettingsChange('businessName', e.target.value)}
+                          disabled
                         />
                       </div>
 
                       <div className="sm:col-span-4">
-                        <Label htmlFor="ownerName">Owner Name</Label>
+                        <Label htmlFor="ownerFirstName">Owner's First Name</Label>
                         <Input
                           type="text"
-                          id="ownerName"
-                          value={businessSettings.ownerName}
-                          onChange={(e) => handleBusinessSettingsChange('ownerName', e.target.value)}
+                          id="ownerFirstName"
+                          value={businessSettings.ownerFirstName}
+                          onChange={(e) => handleBusinessSettingsChange('ownerFirstName', e.target.value)}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-4">
+                        <Label htmlFor="ownerLastName">Owner's Last Name</Label>
+                        <Input
+                          type="text"
+                          id="ownerLastName"
+                          value={businessSettings.ownerLastName}
+                          onChange={(e) => handleBusinessSettingsChange('ownerLastName', e.target.value)}
                         />
                       </div>
 
@@ -344,6 +356,16 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="sm:col-span-6">
+                        <Label htmlFor="description">Description</Label>
+                        <Input
+                          type="text"
+                          id="description"
+                          value={businessSettings.businessDescription}
+                          onChange={(e) => handleBusinessSettingsChange('businessDescription', e.target.value)}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-6">
                         <Label htmlFor="address">Address</Label>
                         <Input
                           type="text"
@@ -364,17 +386,18 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="sm:col-span-2">
-                        <Label htmlFor="state">State</Label>
+                        <Label htmlFor="state">State/Emirate</Label>
                         <Input
                           type="text"
                           id="state"
                           value={businessSettings.state}
                           onChange={(e) => handleBusinessSettingsChange('state', e.target.value)}
+                          placeholder="e.g., Dubai, Abu Dhabi"
                         />
                       </div>
 
                       <div className="sm:col-span-2">
-                        <Label htmlFor="zipCode">ZIP Code</Label>
+                        <Label htmlFor="zipCode">Postal Code</Label>
                         <Input
                           type="text"
                           id="zipCode"
@@ -401,10 +424,8 @@ export default function SettingsPage() {
                           onChange={(e) => handleBusinessSettingsChange('timezone', e.target.value)}
                           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
-                          <option value="Eastern Time">Eastern Time (ET)</option>
-                          <option value="Central Time">Central Time (CT)</option>
-                          <option value="Mountain Time">Mountain Time (MT)</option>
-                          <option value="Pacific Time">Pacific Time (PT)</option>
+                          <option value="Asia/Dubai">Asia/Dubai</option>
+                          {/* Keeping only Asia/Dubai as default */}
                         </select>
                       </div>
 
@@ -416,10 +437,8 @@ export default function SettingsPage() {
                           onChange={(e) => handleBusinessSettingsChange('currency', e.target.value)}
                           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
-                          <option value="USD">USD - US Dollar</option>
-                          <option value="EUR">EUR - Euro</option>
-                          <option value="GBP">GBP - British Pound</option>
-                          <option value="CAD">CAD - Canadian Dollar</option>
+                          <option value="AED">AED</option>
+                          {/* Keeping only AED as default */}
                         </select>
                       </div>
                     </div>

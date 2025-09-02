@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server'
 import prisma from '@/lib/db'
 import { withAuth } from '@/lib/auth-middleware'
 import { UserData } from '@/types/auth'
+import { DateTime } from 'luxon'
 
 export const GET = withAuth(async (request: NextRequest, user: UserData) => {
   try {
@@ -41,24 +42,20 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
     }
 
     if (date) {
-      const selectedDate = new Date(date)
-      const nextDay = new Date(selectedDate)
-      nextDay.setDate(nextDay.getDate() + 1)
-
-      whereClause.appointmentDate = {
-        gte: selectedDate,
-        lt: nextDay
-      }
+      // Use the entrepreneur's timezone for date filtering
+      const selectedDate = DateTime.fromISO(date, { zone: entrepreneurProfile.timezone }).startOf('day')
+      whereClause.appointmentDate = selectedDate.toISODate()
     }
 
     if (search) {
       whereClause.OR = [
-        { customerName: { contains: search, mode: 'insensitive' } },
+        { customerFirstName: { contains: search, mode: 'insensitive' } },
+        { customerLastName: { contains: search, mode: 'insensitive' } },
         { customerEmail: { contains: search, mode: 'insensitive' } },
         { customerPhone: { contains: search, mode: 'insensitive' } }
       ]
     }
-
+    
     const appointments = await prisma.booking.findMany({
       where: whereClause,
       include: {
@@ -66,47 +63,75 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
           select: {
             name: true,
             duration: true,
-            price: true
+            offersHomeService: true,
+            offersInStoreService: true,
+            homeServicePrice: true,
+            inStoreServicePrice: true,
+            homeServiceDeposit: true,
+            inStoreServiceDeposit: true
           }
         },
-        payment: {
-          select: {
-            amount: true,
-            status: true
-          }
-        }
       },
       orderBy: {
         appointmentDate: 'desc'
       }
     })
 
-    const transformedAppointments = appointments.map((appointment: { id: any; customerName: any; customerEmail: any; customerPhone: any; service: { name: any; duration: any; price: string | number | bigint }; appointmentDate: string | number | Date; appointmentTime: any; status: string; specialRequests: any }) => ({
-      id: appointment.id,
-      clientName: appointment.customerName,
-      clientEmail: appointment.customerEmail,
-      clientPhone: appointment.customerPhone || '',
-      service: appointment.service.name,
-      date: appointment.appointmentDate.toString().split('T')[0],
-      time: appointment.appointmentTime,
-      duration: appointment.service.duration,
-      price: appointment.service.price,
-      status: appointment.status.toLowerCase(),
-      notes: appointment.specialRequests || '',
-      formattedDate: new Date(appointment.appointmentDate).toLocaleDateString(),
-      formattedPrice: new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD'
-      }).format(typeof appointment.service.price === 'string' ? parseFloat(appointment.service.price) : Number(appointment.service.price))
-    }))
+    const transformedAppointments = appointments.map((appointment: any) => {
+      // Determine the price based on service type
+      let servicePrice = 0
+      let depositAmount = 0
 
-    return NextResponse.json({ success: true, appointments: transformedAppointments })
+      // Check if booking has serviceLocation field to determine which pricing to use
+      if (appointment.serviceLocation === 'home') {
+        servicePrice = appointment.service.homeServicePrice || 0
+        depositAmount = appointment.service.homeServiceDeposit || 0
+      } else if (appointment.serviceLocation === 'in-store') {
+        servicePrice = appointment.service.inStoreServicePrice || 0
+        depositAmount = appointment.service.inStoreServiceDeposit || 0
+      }
+
+      return {
+        id: appointment.id,
+        customerFirstName: appointment.customerFirstName,
+        customerLastName: appointment.customerLastName,
+        clientName: `${appointment.customerFirstName} ${appointment.customerLastName}`, // For frontend compatibility
+        customerEmail: appointment.customerEmail,
+        clientEmail: appointment.customerEmail, // For frontend compatibility
+        customerPhone: appointment.customerPhone || '',
+        clientPhone: appointment.customerPhone || '', // For frontend compatibility
+        service: appointment.service.name,
+        serviceLocation: appointment.serviceLocation,
+        serviceType: appointment.serviceLocation, // For frontend compatibility
+        date: appointment.appointmentDate,
+        time: appointment.appointmentTime,
+        duration: appointment.service.duration,
+        price: servicePrice,
+        depositAmount: depositAmount,
+        status: appointment.status.toLowerCase(),
+        notes: appointment.specialRequests || '',
+        timezone: entrepreneurProfile.timezone, // Include timezone for frontend
+        formattedDate: DateTime.fromISO(appointment.appointmentDate, { zone: entrepreneurProfile.timezone }).toISO(),
+        formattedPrice: servicePrice > 0 ? new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'AED'
+        }).format(servicePrice) : 'Free',
+        formattedDeposit: depositAmount > 0 ? new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'AED'
+        }).format(depositAmount) : null
+      }
+    })
+
+    return NextResponse.json({ 
+      success: true, 
+      appointments: transformedAppointments,
+      timezone: entrepreneurProfile.timezone // Include timezone in response
+    })
   } catch (error) {
-    console.error('Appointments fetch error:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch appointments' },
       { status: 500 }
     )
   }
 })
-
