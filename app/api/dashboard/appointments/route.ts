@@ -40,6 +40,11 @@ export const GET = withAuth(async (request: NextRequest, user: UserData) => {
     if (status && status !== 'all') {
       whereClause.status = status.toUpperCase()
     }
+    else{
+      whereClause.status = {
+        in: ['CONFIRMED', 'MODIFIED', 'CANCELLED', 'COMPLETED']
+      }
+    }
 
     if (date) {
       // Use the entrepreneur's timezone for date filtering
