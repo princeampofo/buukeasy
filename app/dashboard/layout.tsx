@@ -75,9 +75,9 @@ export default function DashboardLayout({
   }
 
   // Calculate trial days remaining
-  const trialDaysRemaining = user.trialEndsAt 
-    ? Math.ceil((new Date(user.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-    : null
+  // const trialDaysRemaining = user.trialEndsAt 
+  //   ? Math.ceil((new Date(user.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+  //   : null
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -127,7 +127,7 @@ export default function DashboardLayout({
             
             <div className="ml-4 flex items-center md:ml-6 space-x-4">
               {/* Trial notification */}
-              {trialDaysRemaining !== null && trialDaysRemaining <= 7 && (
+              {/* {trialDaysRemaining !== null && trialDaysRemaining <= 7 && (
                 <div className="hidden sm:block bg-yellow-50 border border-yellow-200 rounded-md px-3 py-1">
                   <span className="text-xs font-medium text-yellow-800">
                     {trialDaysRemaining > 0 
@@ -136,7 +136,7 @@ export default function DashboardLayout({
                     }
                   </span>
                 </div>
-              )}
+              )} */}
 
               {/* Notifications */}
               <button className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -242,7 +242,8 @@ export default function DashboardLayout({
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-700">{user?.businessName ?? ''}</p>
                 <div className="flex items-center">
-                  {trialDaysRemaining !== null && trialDaysRemaining > 0 ? (
+                  <span className="text-xs text-green-600">Free Plan</span>
+                  {/* {trialDaysRemaining !== null && trialDaysRemaining > 0 ? (
                     <span className="text-xs text-yellow-600">
                       Trial ({trialDaysRemaining} days left)
                     </span>
@@ -250,7 +251,7 @@ export default function DashboardLayout({
                     <span className="text-xs text-red-600">Trial Expired</span>
                   ) : (
                     <span className="text-xs text-green-600">Premium Plan</span>
-                  )}
+                  )} */}
                 </div>
               </div>
             </div>

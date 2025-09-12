@@ -430,7 +430,7 @@ export default function SignupPage() {
                 onClick={handleNext}
                 className="group w-full flex justify-center items-center py-4 px-6 bg-gradient-to-r from-white to-blue-400 text-blue-800 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl"
               >
-                Continue
+                Next
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -554,7 +554,7 @@ export default function SignupPage() {
                   onClick={handleNext}
                   className="group flex justify-center items-center py-4 px-6 bg-gradient-to-r from-white to-blue-400 text-blue-800 rounded-2xl shadow-lg font-bold transition-all duration-300 hover:scale-105 hover:shadow-xl"
                 >
-                  Continue
+                  Next
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>

@@ -79,7 +79,7 @@ const formatAED = (amount: number) => {
 export default function DashboardPage() {
   // Get user data from auth context
   const { user } = useAuthContext()
-  const [selectedDate, setSelectedDate] = useState(DateTime.now().setZone('Asia/Dubai').toISODate())
+  const [selectedDate, _] = useState(DateTime.now().setZone('Asia/Dubai').toISODate())
   // Add state and useEffect in the component:
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -116,22 +116,22 @@ export default function DashboardPage() {
     return 'Good evening'
   }
 
-  // Calculate trial days remaining
-  const getTrialInfo = () => {
-    if (!user?.trialEndsAt) return null
+  // // Calculate trial days remaining
+  // const getTrialInfo = () => {
+  //   if (!user?.trialEndsAt) return null
     
-    const daysRemaining = Math.ceil(
-      (new Date(user.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-    )
+  //   const daysRemaining = Math.ceil(
+  //     (new Date(user.trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+  //   )
     
-    return {
-      daysRemaining,
-      isExpired: daysRemaining <= 0,
-      isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0
-    }
-  }
+  //   return {
+  //     daysRemaining,
+  //     isExpired: daysRemaining <= 0,
+  //     isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0
+  //   }
+  // }
 
-  const trialInfo = getTrialInfo()
+  // const trialInfo = getTrialInfo()
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -247,7 +247,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Trial Warning Banner - Hide details on mobile */}
-        {trialInfo && (trialInfo.isExpired || trialInfo.isExpiringSoon) && (
+        {/* {trialInfo && (trialInfo.isExpired || trialInfo.isExpiringSoon) && (
           <div className={`mt-4 sm:mt-6 rounded-md p-3 sm:p-4 ${
             trialInfo.isExpired 
               ? 'bg-red-50 border border-red-200' 
@@ -296,7 +296,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Stats Grid - Responsive */}
         <div className="mt-6 sm:mt-8">
@@ -415,9 +415,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Recent Activity & Quick Actions */}
+          {/* Quick Actions Only */}
           <div className="space-y-6 sm:space-y-8">
-            {/* Recent Activity */}
+            {/* Recent Activity - COMMENTED OUT */}
+            {/* 
             <div className="bg-white shadow rounded-lg">
               <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                 <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900">
@@ -463,6 +464,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+            */}
 
             {/* Quick Actions */}
             <div className="bg-white shadow rounded-lg">

@@ -30,7 +30,7 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
     const entrepreneurId = entrepreneurProfile.id
 
     // Get date ranges
-    const today = DateTime.now().setZone(entrepreneurProfile.timezone)
+    const today = DateTime.now().setZone(entrepreneurProfile.timezone || 'Asia/Dubai')
     const startOfToday = today.startOf('day')
     const endOfToday = today.endOf('day')
 
@@ -43,7 +43,7 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
     const endOfMonth = today.endOf('month')
 
     // Current time for next appointment
-    const now = DateTime.now().setZone(entrepreneurProfile.timezone)
+    const now = DateTime.now().setZone(entrepreneurProfile.timezone || 'Asia/Dubai')
 
     // 1. Monthly Estimated Revenue (from completed payments for bookings in current month)
     const monthlyBookingsWithPayments = await prisma.booking.findMany({
@@ -211,30 +211,31 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
     })
 
     // Fetch recent activity - include payment information with timestamps
-    const recentActivity = await prisma.booking.findMany({
-      where: {
-        entrepreneurId: entrepreneurId,
-        OR: [
-          { status: 'CONFIRMED' },
-          { status: 'CANCELLED' },
-          { status: 'COMPLETED' },
-        ]
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 10,
-      include: {
-        payment: {
-          select: {
-            id: true,
-            status: true,
-            createdAt: true,
-            netAmount: true
-          }
-        }
-      }
-    })
+    // const recentActivity = await prisma.booking.findMany({
+    //   where: {
+    //     entrepreneurId: entrepreneurId,
+    //     OR: [
+    //       { status: 'CONFIRMED' },
+    //       { status: 'CANCELLED' },
+    //       { status: 'COMPLETED' },
+    //     ]
+    //   },
+    //   orderBy: {
+    //     createdAt: 'desc'
+    //   },
+    //   take: 10,
+    //   include: {
+    //     payment: {
+    //       select: {
+    //         id: true,
+    //         status: true,
+    //         createdAt: true,
+    //         netAmount: true
+    //       }
+    //     }
+    //   }
+    // })
+
 
     // Transform appointments for frontend
     const formattedAppointments = upcomingAppointments.map((appt) => ({
@@ -248,69 +249,72 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
     }))
 
     // Transform recent activity for frontend - Show both booking and payment events separately
-    const formattedActivity: any[] = []
+    // const formattedActivity: any[] = []
     
-    recentActivity.forEach((activity) => {
-      // Always add the booking/appointment event first
-      let bookingActivityType = {
-        type: 'booking',
-        icon: 'Calendar',
-        iconColor: 'text-blue-500',
-        message: `New appointment booked by ${activity.customerFirstName}`
-      }
+    // recentActivity.forEach((activity) => {
+    //   // Always add the booking/appointment event first
+    //   let bookingActivityType = {
+    //     type: 'booking',
+    //     icon: 'Calendar',
+    //     iconColor: 'text-blue-500',
+    //     message: `New appointment booked by ${activity.customerFirstName}`
+    //   }
 
-      if (activity.status === 'CANCELLED') {
-        bookingActivityType = {
-          type: 'cancellation',
-          icon: 'XCircle',
-          iconColor: 'text-red-500',
-          message: `Appointment cancelled by ${activity.customerFirstName}`
-        }
-      } else if (activity.status === 'COMPLETED') {
-        bookingActivityType = {
-          type: 'completion',
-          icon: 'CheckCircle',
-          iconColor: 'text-blue-500',
-          message: `Appointment completed with ${activity.customerFirstName}`
-        }
-      } else if (activity.status === 'NO_SHOW') {
-        bookingActivityType = {
-          type: 'no-show',
-          icon: 'AlertCircle',
-          iconColor: 'text-orange-500',
-          message: `${activity.customerFirstName} was a no-show`
-        }
-      }
+    //   if (activity.status === 'CANCELLED') {
+    //     bookingActivityType = {
+    //       type: 'cancellation',
+    //       icon: 'XCircle',
+    //       iconColor: 'text-red-500',
+    //       message: `Appointment cancelled by ${activity.customerFirstName}`
+    //     }
+    //   } else if (activity.status === 'COMPLETED') {
+    //     bookingActivityType = {
+    //       type: 'completion',
+    //       icon: 'CheckCircle',
+    //       iconColor: 'text-blue-500',
+    //       message: `Appointment completed with ${activity.customerFirstName}`
+    //     }
+    //   } else if (activity.status === 'NO_SHOW') {
+    //     bookingActivityType = {
+    //       type: 'no-show',
+    //       icon: 'AlertCircle',
+    //       iconColor: 'text-orange-500',
+    //       message: `${activity.customerFirstName} was a no-show`
+    //     }
+    //   }
 
-      // Add the booking activity
-      formattedActivity.push({
-        id: `${activity.id}-booking`,
-        ...bookingActivityType,
-        time: formatTimeAgo(activity.createdAt) // Use createdAt for booking time
-      })
+    //   // Add the booking activity
+    //   formattedActivity.push({
+    //     id: `${activity.id}-booking`,
+    //     ...bookingActivityType,
+    //     time: formatTimeAgo(activity.createdAt) // Use createdAt for booking time
+    //   })
 
-      // If there's a completed payment, add it as a separate activity
-      if (activity.payment && activity.payment.status === 'COMPLETED') {
-        formattedActivity.push({
-          id: `${activity.id}-payment`,
-          type: 'payment',
-          icon: 'DollarSign',
-          iconColor: 'text-green-500',
-          message: `Deposit received from ${activity.customerFirstName}`,
-          time: formatTimeAgo(activity.payment.createdAt) // Use payment creation time
-        })
-      }
-    })
+    //   // // If there's a completed payment, add it as a separate activity
+    //   // if (activity.payment && activity.payment.status === 'COMPLETED') {
+    //   //   formattedActivity.push({
+    //   //     id: `${activity.id}-payment`,
+    //   //     type: 'payment',
+    //   //     icon: 'DollarSign',
+    //   //     iconColor: 'text-green-500',
+    //   //     message: `Deposit received from ${activity.customerFirstName}`,
+    //   //     time: formatTimeAgo(activity.payment.createdAt) // Use payment creation time
+    //   //   })
+    //   // }
+    // })
 
-    // Sort by date and time
-    formattedActivity.sort((a, b) => {
-      const timeA = new Date().getTime() - parseTimeAgo(a.time)
-      const timeB = new Date().getTime() - parseTimeAgo(b.time)
-      return timeB - timeA
-    })
+    // // Sort by date and time
+    // formattedActivity.sort((a, b) => {
+    //   const timeA = new Date().getTime() - parseTimeAgo(a.time)
+    //   const timeB = new Date().getTime() - parseTimeAgo(b.time)
+    //   return timeB - timeA
+    // })
 
     // Take only the most recent 15 activities
-    const finalFormattedActivity = formattedActivity.slice(0, 15)
+    // const finalFormattedActivity = formattedActivity.slice(0, 15)
+    const finalFormattedActivity : any[] = [] // Empty array since recent activity is disabled for now
+
+    // Return all the data
 
     return NextResponse.json({
       stats,
