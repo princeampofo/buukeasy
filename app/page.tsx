@@ -51,11 +51,11 @@ export default function LandingPage() {
                   Launch Your Booking Page
                   <Rocket className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
-                <button className="group bg-white/10 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-2xl font-semibold hover:bg-white/20 transition-all duration-300 flex items-center justify-center">
+                {/* <button className="group bg-white/10 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-2xl font-semibold hover:bg-white/20 transition-all duration-300 flex items-center justify-center">
                   <Play className="mr-2 h-5 w-5" />
                   Watch Demo
                   <ArrowUpRight className="ml-2 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                </button>
+                </button> */}
               </div>
               
               <div className="flex items-center space-x-6 text-white/60">
@@ -91,7 +91,7 @@ export default function LandingPage() {
                       ))}
                     </div>
                     <div className="space-y-2">
-                      {['Hair Cut - $45', 'Color - $85', 'Styling - $35'].map((service) => (
+                      {['Nail Care- AED 100', 'Color - AED 85', 'Styling - AED 35'].map((service) => (
                         <div key={service} className="bg-gradient-to-r from-white/20 to-blue-400/20 rounded-lg p-3 text-white text-sm">
                           {service}
                         </div>
@@ -142,7 +142,7 @@ export default function LandingPage() {
               {
                 icon: Wand2,
                 title: "Magic Reminders",
-                description: "Automated SMS and email reminders that reduce no-shows by 85%",
+                description: "Automated SMS and email reminders that reduce no-shows",
                 gradient: "from-sky-100 to-blue-500"
               },
               {
@@ -189,23 +189,23 @@ export default function LandingPage() {
             {[
               {
                 text: "Game changer! My clients love the sleek booking experience and I save 3 hours a week on scheduling.",
-                name: "Maya Chen",
-                role: "Hair Artist",
-                avatar: "MC",
+                name: "Wisdom Esil",
+                role: "Hair Stylist",
+                avatar: "WE",
                 color: "from-white to-blue-300"
               },
               {
-                text: "The mobile-responsive design is perfect! I can manage bookings from my laptop at home or my phone between clients.",
-                name: "Alex Rivera",
-                role: "Mobile Barber",
-                avatar: "AR",
+                text: "The mobile-responsive design is perfect! I can manage bookings from my laptop or my phone.",
+                name: "Scott Effectz",
+                role: "Barber",
+                avatar: "SE",
                 color: "from-blue-100 to-blue-400"
               },
               {
                 text: "My no-show rate dropped significantly with the smart reminders. Plus it's completely free - amazing value!",
-                name: "Sophie Kim",
-                role: "Nail Artist",
-                avatar: "SK",
+                name: "Juliet Kalu",
+                role: "Nail Tech",
+                avatar: "JK",
                 color: "from-sky-200 to-blue-500"
               }
             ].map((testimonial, index) => (

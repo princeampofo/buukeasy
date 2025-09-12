@@ -70,7 +70,7 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
 
     for (const booking of monthlyBookingsWithPayments) {
       if (booking.payment) {
-        monthlyRevenue += booking.payment.netAmount || 0
+        monthlyRevenue += booking.payment.serviceAmount || 0
       }
     }
 
@@ -159,9 +159,9 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
 
     const stats = [
       {
-        name: "Monthly Est. Revenue",
+        name: "Monthly Revenue",
         value: `$${monthlyRevenue.toFixed(2)}`,
-        change: 'Excluding fees',
+        change: 'Projected earnings',
         changeType: 'increase' as const,
         icon: 'DollarSign',
       },

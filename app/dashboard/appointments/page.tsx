@@ -49,13 +49,11 @@ interface Appointment {
   time: string
   duration: number
   price?: number
-  depositAmount?: number
   status: 'confirmed' | 'modified' | 'cancelled' | 'completed'
   notes?: string
   timezone?: string
   formattedDate?: string
   formattedPrice?: string
-  formattedDeposit?: string | null
 }
 
 const statusOptions = ['all', 'confirmed', 'modified', 'cancelled', 'completed']
@@ -259,6 +257,33 @@ const AppointmentsPage = () => {
     setSelectedDate(luxonDate.toISODate())
   }
 
+  // Helper function to determine available actions for an appointment
+  const getAvailableActions = (appointment: Appointment) => {
+    const actions = []
+    
+    // Can only mark as complete if not already completed or cancelled
+    if (appointment.status !== 'completed' && appointment.status !== 'cancelled') {
+      actions.push({
+        type: 'complete' as const,
+        label: 'Complete',
+        icon: CheckCircle,
+        className: ''
+      })
+    }
+    
+    // Can only cancel if not already cancelled or completed
+    if (appointment.status !== 'cancelled' && appointment.status !== 'completed') {
+      actions.push({
+        type: 'cancel' as const,
+        label: 'Cancel',
+        icon: XCircle,
+        className: 'text-destructive'
+      })
+    }
+    
+    return actions
+  }
+
   if (loading) {
     return (
       <div className="container px-4 sm:px-6 py-4 sm:py-6">
@@ -314,7 +339,6 @@ const AppointmentsPage = () => {
             <p className="text-sm text-muted-foreground">
               <span className="hidden sm:inline">Manage your upcoming and past appointments</span>
               <span className="sm:hidden">Manage appointments</span>
-              <span className="hidden sm:inline"> ({timezone})</span>
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -422,38 +446,34 @@ const AppointmentsPage = () => {
               appointments.map((appointment) => {
                 const ServiceTypeIcon = serviceLocationConfig[appointment.serviceType]?.icon || Store
                 const appointmentDateTime = createDateTimeFromString(appointment.date)
+                const availableActions = getAvailableActions(appointment)
                 
                 return (
                   <Card key={appointment.id} className="relative">
                     <CardHeader className="pb-2 sm:pb-2">
-                      <div className="absolute right-3 top-3 sm:right-6 sm:top-6">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {appointment.status !== 'completed' && (
-                              <DropdownMenuItem
-                                onClick={() => setConfirmDialog({ type: 'complete', id: appointment.id })}
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Complete
-                              </DropdownMenuItem>
-                            )}
-                            {appointment.status !== 'cancelled' && (
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => setConfirmDialog({ type: 'cancel', id: appointment.id })}
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Cancel
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                      {availableActions.length > 0 && (
+                        <div className="absolute right-3 top-3 sm:right-6 sm:top-6">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {availableActions.map((action) => (
+                                <DropdownMenuItem
+                                  key={action.type}
+                                  className={action.className}
+                                  onClick={() => setConfirmDialog({ type: action.type, id: appointment.id })}
+                                >
+                                  <action.icon className="mr-2 h-4 w-4" />
+                                  {action.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
                       
                       <div className="flex items-start space-x-3 pr-8">
                         <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
@@ -517,13 +537,6 @@ const AppointmentsPage = () => {
                             <DollarSign className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
                             {appointment.formattedPrice || 'Free'}
                           </div>
-                          
-                          {appointment.formattedDeposit && (
-                            <div className="text-xs text-orange-600">
-                              <span className="hidden sm:inline">Deposit: </span>
-                              {appointment.formattedDeposit}
-                            </div>
-                          )}
                         </div>
                         
                         <Badge variant={statusConfig[appointment.status].variant} className="text-xs">

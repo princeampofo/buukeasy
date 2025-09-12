@@ -145,7 +145,7 @@ export default function DashboardPage() {
   // Updated stats card styling with better visual hierarchy and AED formatting
   const getStatsCardStyle = (statName: string) => {
     switch (statName) {
-      case "Monthly Est. Revenue":
+      case "Monthly Revenue":
         return 'bg-gradient-to-r from-green-50 to-green-100 border-green-200 hover:from-green-100 hover:to-green-150'
       case "This Week's Bookings":
         return 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 hover:from-blue-100 hover:to-blue-150'
@@ -161,7 +161,7 @@ export default function DashboardPage() {
   // Helper function to get appropriate icon color based on stat
   const getStatIconColor = (statName: string) => {
     switch (statName) {
-      case "Monthly Est. Revenue":
+      case "Monthly Revenue":
         return 'text-green-600'
       case "This Week's Bookings":
         return 'text-blue-600'
