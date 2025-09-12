@@ -106,11 +106,9 @@ export default function DashboardPage() {
 
   // Get time-based greeting in GST
   const getGreeting = () => {
-    const now = new Date()
-    // Convert to GST (UTC+4)
-    const gstTime = new Date(now.getTime() + (4 * 60 * 60 * 1000))
-    const hour = gstTime.getUTCHours()
-    
+    const gstTime = DateTime.now().setZone('Asia/Dubai')
+    const hour = gstTime.hour
+
     if (hour < 12) return 'Good morning'
     if (hour < 17) return 'Good afternoon'
     return 'Good evening'

@@ -7,15 +7,9 @@ import {
   Save, 
   ArrowLeft, 
   Clock, 
-  DollarSign, 
-  Tag, 
-  FileText,
   AlertCircle,
   CheckCircle,
   Upload,
-  X,
-  Trash2,
-  Eye,
   Home,
   Store,
   Calendar
@@ -32,10 +26,8 @@ interface ServiceFormData {
   offersHomeService: boolean
   offersInStoreService: boolean
   homeServicePrice: number
-  homeServiceDeposit: number
   homeServiceBufferTime: number
   inStoreServicePrice: number
-  inStoreServiceDeposit: number
   inStoreServiceBufferTime: number
   minAdvanceHours: number
   maxAdvanceDays: number
@@ -45,7 +37,6 @@ const categories = [
   'HAIR_SERVICES',
   'NAIL_CARE',
   'SKIN_CARE',
-  'BARBERING',
   'BEAUTY_TREATMENT',
   'MASSAGE',
   'OTHER'
@@ -59,16 +50,6 @@ const formatCategory = (category: string) => {
     .join(' ')
 }
 
-// Helper function to format AED currency
-const formatAED = (amount: number) => {
-  return new Intl.NumberFormat('en-AE', {
-    style: 'currency',
-    currency: 'AED',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  }).format(amount)
-}
-
 export default function EditServicePage() {
   const router = useRouter()
   const params = useParams()
@@ -77,7 +58,7 @@ export default function EditServicePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [_, setImagePreview] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
@@ -90,10 +71,8 @@ export default function EditServicePage() {
     offersHomeService: false,
     offersInStoreService: false,
     homeServicePrice: 0,
-    homeServiceDeposit: 0,
     homeServiceBufferTime: 0,
     inStoreServicePrice: 0,
-    inStoreServiceDeposit: 0,
     inStoreServiceBufferTime: 0,
     minAdvanceHours: 48,
     maxAdvanceDays: 30
@@ -120,10 +99,8 @@ export default function EditServicePage() {
           offersHomeService: service.offersHomeService,
           offersInStoreService: service.offersInStoreService,
           homeServicePrice: service.homeServicePrice || 0,
-          homeServiceDeposit: service.homeServiceDeposit || 0,
           homeServiceBufferTime: service.homeServiceBufferTime || 0,
           inStoreServicePrice: service.inStoreServicePrice || 0,
-          inStoreServiceDeposit: service.inStoreServiceDeposit || 0,
           inStoreServiceBufferTime: service.inStoreServiceBufferTime || 0,
           minAdvanceHours: service.minAdvanceHours || 48,
           maxAdvanceDays: service.maxAdvanceDays || 30
@@ -192,14 +169,6 @@ export default function EditServicePage() {
       newErrors.inStoreServicePrice = 'In-store service price must be greater than 0'
     }
 
-    if (formData.offersHomeService && formData.homeServiceDeposit > formData.homeServicePrice) {
-      newErrors.homeServiceDeposit = 'Home service deposit cannot be more than service price'
-    }
-
-    if (formData.offersInStoreService && formData.inStoreServiceDeposit > formData.inStoreServicePrice) {
-      newErrors.inStoreServiceDeposit = 'In-store service deposit cannot be more than service price'
-    }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -221,6 +190,10 @@ export default function EditServicePage() {
           submitData.append(key, String(value))
         }
       })
+
+      // Set deposits to 0 as they're no longer configurable
+      submitData.append('homeServiceDeposit', '0')
+      submitData.append('inStoreServiceDeposit', '0')
 
       const response = await fetch(`/api/dashboard/services/${serviceId}`, {
         method: 'PUT',
@@ -477,7 +450,7 @@ export default function EditServicePage() {
                 Service Location & Pricing
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                <strong>Note:</strong> All prices are in UAE Dirhams (AED). The booking deposit is what clients pay upfront to hold their appointment and reduce no-shows.
+                Select where you offer this service and set pricing.
               </p>
             </div>
             <div className="px-6 py-4 space-y-6">
@@ -535,48 +508,23 @@ export default function EditServicePage() {
                         </div>
 
                         <div>
-                          <label htmlFor="homeServiceDeposit" className="block text-sm font-medium text-gray-700 mb-2">
-                            Booking Deposit (AED)
+                          <label htmlFor="homeServiceBufferTime" className="block text-sm font-medium text-gray-700 mb-2">
+                            Buffer Time (minutes)
                           </label>
                           <div className="relative">
-                            <span className="absolute left-3 top-3 text-gray-400 text-sm">AED</span>
+                            <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                             <input
                               type="number"
-                              id="homeServiceDeposit"
+                              id="homeServiceBufferTime"
                               min="0"
-                              step="0.01"
-                              value={formData.homeServiceDeposit}
-                              onChange={(e) => handleInputChange('homeServiceDeposit', parseFloat(e.target.value) || 0)}
-                              className={`block w-full pl-12 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                errors.homeServiceDeposit ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                              }`}
-                              placeholder="0.00"
+                              step="1"
+                              value={formData.homeServiceBufferTime}
+                              onChange={(e) => handleInputChange('homeServiceBufferTime', parseInt(e.target.value) || 0)}
+                              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
-                          {errors.homeServiceDeposit && (
-                            <p className="mt-1 text-sm text-red-600">{errors.homeServiceDeposit}</p>
-                          )}
-                          <p className="mt-1 text-xs text-gray-500">Optional deposit required for booking</p>
+                          <p className="mt-1 text-xs text-gray-500">Extra time between home service appointments (for travel, setup, etc.)</p>
                         </div>
-                      </div>
-                      
-                      <div>
-                        <label htmlFor="homeServiceBufferTime" className="block text-sm font-medium text-gray-700 mb-2">
-                          Buffer Time (minutes)
-                        </label>
-                        <div className="relative">
-                          <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                          <input
-                            type="number"
-                            id="homeServiceBufferTime"
-                            min="0"
-                            step="1"
-                            value={formData.homeServiceBufferTime}
-                            onChange={(e) => handleInputChange('homeServiceBufferTime', parseInt(e.target.value) || 0)}
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">Extra time between home service appointments (for travel, setup, etc.)</p>
                       </div>
                     </div>
                   )}
@@ -626,48 +574,23 @@ export default function EditServicePage() {
                         </div>
 
                         <div>
-                          <label htmlFor="inStoreServiceDeposit" className="block text-sm font-medium text-gray-700 mb-2">
-                            Booking Deposit (AED)
+                          <label htmlFor="inStoreServiceBufferTime" className="block text-sm font-medium text-gray-700 mb-2">
+                            Buffer Time (minutes)
                           </label>
                           <div className="relative">
-                            <span className="absolute left-3 top-3 text-gray-400 text-sm">AED</span>
+                            <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                             <input
                               type="number"
-                              id="inStoreServiceDeposit"
+                              id="inStoreServiceBufferTime"
                               min="0"
-                              step="0.01"
-                              value={formData.inStoreServiceDeposit}
-                              onChange={(e) => handleInputChange('inStoreServiceDeposit', parseFloat(e.target.value) || 0)}
-                              className={`block w-full pl-12 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                errors.inStoreServiceDeposit ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                              }`}
-                              placeholder="0.00"
+                              step="1"
+                              value={formData.inStoreServiceBufferTime}
+                              onChange={(e) => handleInputChange('inStoreServiceBufferTime', parseInt(e.target.value) || 0)}
+                              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
-                          {errors.inStoreServiceDeposit && (
-                            <p className="mt-1 text-sm text-red-600">{errors.inStoreServiceDeposit}</p>
-                          )}
-                          <p className="mt-1 text-xs text-gray-500">Optional deposit required for booking</p>
+                          <p className="mt-1 text-xs text-gray-500">Extra time between in-store appointments (for cleanup, preparation, etc.)</p>
                         </div>
-                      </div>
-                      
-                      <div>
-                        <label htmlFor="inStoreServiceBufferTime" className="block text-sm font-medium text-gray-700 mb-2">
-                          Buffer Time (minutes)
-                        </label>
-                        <div className="relative">
-                          <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                          <input
-                            type="number"
-                            id="inStoreServiceBufferTime"
-                            min="0"
-                            step="1"
-                            value={formData.inStoreServiceBufferTime}
-                            onChange={(e) => handleInputChange('inStoreServiceBufferTime', parseInt(e.target.value) || 0)}
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">Extra time between in-store appointments (for cleanup, preparation, etc.)</p>
                       </div>
                     </div>
                   )}

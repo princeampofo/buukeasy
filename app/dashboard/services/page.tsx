@@ -37,9 +37,7 @@ interface Service {
   offersHomeService: boolean
   offersInStoreService: boolean
   homeServicePrice: number | null
-  homeServiceDeposit: number | null
   inStoreServicePrice: number | null
-  inStoreServiceDeposit: number | null
   minAdvanceHours: number
   maxAdvanceDays: number
 }
@@ -49,7 +47,6 @@ const categories = [
   'HAIR_SERVICES',
   'NAIL_CARE',
   'SKIN_CARE',
-  'BARBERING',
   'BEAUTY_TREATMENT',
   'MASSAGE',
   'OTHER'
@@ -258,15 +255,8 @@ export default function ServicesPage() {
                             <Home className="mr-2 h-4 w-4 text-blue-600" />
                             <span className="font-medium">Home Service</span>
                           </div>
-                          <div className="text-right">
-                            <div className="text-sm font-semibold text-blue-600">
-                              {formatAED(service.homeServicePrice)}
-                            </div>
-                            {service.homeServiceDeposit && service.homeServiceDeposit > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                Deposit: {formatAED(service.homeServiceDeposit)}
-                              </div>
-                            )}
+                          <div className="text-sm font-semibold text-blue-600">
+                            {formatAED(service.homeServicePrice)}
                           </div>
                         </div>
                       )}
@@ -277,15 +267,8 @@ export default function ServicesPage() {
                             <Store className="mr-2 h-4 w-4 text-green-600" />
                             <span className="font-medium">In-Store Service</span>
                           </div>
-                          <div className="text-right">
-                            <div className="text-sm font-semibold text-green-600">
-                              {formatAED(service.inStoreServicePrice)}
-                            </div>
-                            {service.inStoreServiceDeposit && service.inStoreServiceDeposit > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                Deposit: {formatAED(service.inStoreServiceDeposit)}
-                              </div>
-                            )}
+                          <div className="text-sm font-semibold text-green-600">
+                            {formatAED(service.inStoreServicePrice)}
                           </div>
                         </div>
                       )}
@@ -323,7 +306,6 @@ export default function ServicesPage() {
           <Card>
             <CardHeader>
               <CardTitle>Service Statistics</CardTitle>
-              <CardDescription>All prices displayed in UAE Dirhams (AED)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-3">

@@ -142,10 +142,10 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
     const minutes = parseInt(minutesStr, 10);
 
 
-    const appointmentDateTime = DateTime.fromISO(`${datePart}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`, { zone: entrepreneurProfile.timezone });
+    const appointmentDateTime = DateTime.fromISO(`${datePart}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`, { zone: entrepreneurProfile.timezone || 'Asia/Dubai' });
 
-    const now = DateTime.now().setZone(entrepreneurProfile.timezone);
-    const diffInMinutes = Math.floor((appointmentDateTime - now) / (1000 * 60));
+    const now = DateTime.now().setZone(entrepreneurProfile.timezone || 'Asia/Dubai');
+    const diffInMinutes = Math.floor((appointmentDateTime.toMillis() - now.toMillis()) / (1000 * 60));
 
     if (diffInMinutes < 0) return 'None scheduled';
     if (diffInMinutes < 60) return `In ${diffInMinutes}m`;
@@ -337,36 +337,36 @@ export const GET = withAuth(async (_request: NextRequest, user: UserData) => {
 })
 
 // Helper function to format time ago
-function formatTimeAgo(date: Date) {
-  const now = new Date()
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+// function formatTimeAgo(date: Date) {
+//   const now = new Date()
+//   const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
   
-  if (diffInMinutes < 60) {
-    return `${diffInMinutes} min${diffInMinutes !== 1 ? 's' : ''} ago`
-  }
+//   if (diffInMinutes < 60) {
+//     return `${diffInMinutes} min${diffInMinutes !== 1 ? 's' : ''} ago`
+//   }
   
-  const diffInHours = Math.floor(diffInMinutes / 60)
-  if (diffInHours < 24) {
-    return `${diffInHours} hr${diffInHours !== 1 ? 's' : ''} ago`
-  }
+//   const diffInHours = Math.floor(diffInMinutes / 60)
+//   if (diffInHours < 24) {
+//     return `${diffInHours} hr${diffInHours !== 1 ? 's' : ''} ago`
+//   }
   
-  const diffInDays = Math.floor(diffInHours / 24)
-  return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`
-}
+//   const diffInDays = Math.floor(diffInHours / 24)
+//   return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`
+// }
 
 // Helper function to parse time ago string back to minutes for sorting
-function parseTimeAgo(timeAgoString: string): number {
-  const parts = timeAgoString.split(' ')
-  const value = parseInt(parts[0])
-  const unit = parts[1]
+// function parseTimeAgo(timeAgoString: string): number {
+//   const parts = timeAgoString.split(' ')
+//   const value = parseInt(parts[0])
+//   const unit = parts[1]
   
-  if (unit.includes('minute')) {
-    return value
-  } else if (unit.includes('hour')) {
-    return value * 60
-  } else if (unit.includes('day')) {
-    return value * 60 * 24
-  }
+//   if (unit.includes('minute')) {
+//     return value
+//   } else if (unit.includes('hour')) {
+//     return value * 60
+//   } else if (unit.includes('day')) {
+//     return value * 60 * 24
+//   }
   
-  return 0
-}
+//   return 0
+// }
