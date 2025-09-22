@@ -143,10 +143,10 @@ model Payment {
   bookingId        String          @unique
   totalAmount      Float
   depositAmount    Float           // Booking deposit amount (what you process now)
-  serviceAmount    Float           // Full service price (for reference/future)
+  serviceAmount    Float           // service price (for reference/future)
   tipAmount        Float
   currency         String          @default("AED")
-  paymentType      PaymentType     @default(DEPOSIT)
+  paymentType      PaymentType     @default(PLATFORM_FEE)
   paymentMethod    String          
   paymentIntentId  String?         
   transactionId    String?         
@@ -247,6 +247,7 @@ enum BookingStatus {
 enum PaymentType {
   FULL_PAYMENT
   DEPOSIT
+  PLATFORM_FEE
   REMAINING_BALANCE
 }
 

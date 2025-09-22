@@ -32,6 +32,15 @@ export default function PaymentPage() {
   // Use ref to prevent multiple clearBookingData calls
   const hasHandledPaymentStatus = useRef(false)
 
+  // Calculate platform fee: 5% of service amount, min 3 AED, max 5 AED
+  const calculatePlatformFee = () => {
+    if (!bookingData.serviceAmount) return 3
+    const feeAmount = bookingData.serviceAmount * 0.05
+    return Math.min(Math.max(feeAmount, 3), 5)
+  }
+
+  const platformFee = calculatePlatformFee()
+
   // Handle payment status from URL params (cancelled/failed) - FIXED
   useEffect(() => {
   const handleFailedPayment = async () => {
@@ -109,9 +118,9 @@ export default function PaymentPage() {
           serviceId: bookingData.serviceId,
           appointmentDate: bookingData.appointmentDate,
           appointmentTime: bookingData.appointmentTime,
-          totalAmount: bookingData.totalAmount,
           depositAmount: bookingData.depositAmount,
           serviceAmount: bookingData.serviceAmount,
+          platformFee: platformFee,
           serviceLocation: bookingData.serviceLocation,
           
           customerFirstName: bookingData.customerFirstName,
@@ -201,11 +210,10 @@ export default function PaymentPage() {
     return null
   }
 
-  const remainingAmount = (bookingData.totalAmount || 0) - (bookingData.depositAmount || 0)
+  const remainingAmount = (bookingData.serviceAmount || 0) - (bookingData.depositAmount || 0)
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto px-3 sm:px-6">
-      {/* Rest of your JSX remains exactly the same */}
       {/* Back Button and Header */}
       <div className="flex items-center gap-3 mb-4 sm:mb-6">
         <button
@@ -218,18 +226,32 @@ export default function PaymentPage() {
       </div>
 
       {/* Deposit Information Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg sm:rounded-xl p-4 sm:p-6">
-        <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <h3 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-sm sm:text-base">Deposit Payment</h3>
-            <p className="text-blue-800 text-xs sm:text-sm leading-relaxed">
-              You're paying a deposit of <strong>AED {bookingData.depositAmount?.toFixed(2)}</strong> to secure your appointment. 
-              <span className="hidden sm:inline"> The remaining amount of <strong>AED {remainingAmount.toFixed(2)}</strong> will be paid directly to the service provider at the time of your appointment.</span>
+      {bookingData.depositAmount ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg sm:rounded-xl p-4 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-sm sm:text-base">Deposit Payment</h3>
+              <p className="text-blue-800 text-xs sm:text-sm leading-relaxed">
+              You're paying a deposit of <strong>AED {bookingData.depositAmount?.toFixed(2)}</strong> plus a platform fee of <strong>AED {platformFee.toFixed(2)}</strong> to secure your appointment. 
+              <span className="hidden sm:inline"> The remaining service amount of <strong>AED {remainingAmount.toFixed(2)}</strong> will be paid directly to the service provider at the time of your appointment.</span>
             </p>
           </div>
         </div>
-      </div>
+      </div>): ""}
+
+      {/* Platform Fee Information */}
+      {/* <div className="bg-gray-50 border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-6">
+        <div className="flex items-start gap-3">
+          <Info className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-1 sm:mb-2 text-sm sm:text-base">Platform Fee</h3>
+            <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">
+              A platform fee of <strong>AED {platformFee.toFixed(2)}</strong> is added to help maintain and improve our booking platform. This fee is 5% of the service amount (minimum AED 3, maximum AED 5).
+            </p>
+          </div>
+        </div>
+      </div> */}
 
       {/* Booking Summary */}
       <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border p-4 sm:p-6">
@@ -306,21 +328,29 @@ export default function PaymentPage() {
           <div className="pt-3 sm:pt-4 border-t">
             <div className="space-y-1 sm:space-y-2">
               <div className="flex justify-between items-center text-xs sm:text-sm">
-                <span className="text-gray-600">Total Service Amount:</span>
-                <span className="font-medium">AED {bookingData.totalAmount?.toFixed(2)}</span>
+                <span className="text-gray-600">Service Amount:</span>
+                <span className="font-medium">AED {bookingData.serviceAmount?.toFixed(2)}</span>
               </div>
+              {bookingData.depositAmount ? (
+                <div className="flex justify-between items-center text-xs sm:text-sm">
+                  <span className="text-gray-600">Deposit:</span>
+                  <span className="font-medium">AED {bookingData.depositAmount?.toFixed(2)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between items-center text-xs sm:text-sm">
-                <span className="text-gray-600">Deposit (Now):</span>
-                <span className="font-medium text-blue-600">AED {bookingData.depositAmount?.toFixed(2)}</span>
+                <span className="text-gray-600">Platform Fee:</span>
+                <span className="font-medium">AED {platformFee.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center text-xs sm:text-sm">
-                <span className="text-gray-600">Remaining (At Appointment):</span>
-                <span className="font-medium">AED {remainingAmount.toFixed(2)}</span>
-              </div>
+              {bookingData.depositAmount ? (
+                <div className="flex justify-between items-center text-xs sm:text-sm">
+                  <span className="text-gray-600">Remaining (At Appointment):</span>
+                  <span className="font-medium">AED {remainingAmount.toFixed(2)}</span>
+                </div>
+              ) : null}
               <div className="pt-2 border-t border-gray-200">
                 <div className="flex justify-between items-center">
                   <span className="text-base sm:text-lg font-semibold text-gray-900">Pay Today:</span>
-                  <span className="text-xl sm:text-2xl font-bold text-blue-600">AED {bookingData.depositAmount?.toFixed(2)}</span>
+                  <span className="text-xl sm:text-2xl font-bold text-blue-600">AED {platformFee.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -364,7 +394,7 @@ export default function PaymentPage() {
             ) : (
               <>
                 <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
-                Pay AED {bookingData.depositAmount?.toFixed(2)}
+                Pay AED {platformFee.toFixed(2)}
               </>
             )}
           </button>
@@ -381,12 +411,17 @@ export default function PaymentPage() {
         <h3 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Terms and Conditions</h3>
         <div className="text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-2">
           <p>• By proceeding with payment, you agree to our terms of service and privacy policy.</p>
-          <p>• This deposit secures your appointment time and is non-refundable within 24 hours.</p>
-          <p className="hidden sm:block">• Cancellations must be made at least 24 hours in advance for a full deposit refund.</p>
-          <p className="hidden sm:block">• The remaining service amount will be paid directly to the service provider.</p>
-          <p className="hidden sm:block">• You will receive a confirmation email once payment is completed.</p>
-          <p className="sm:hidden">• Cancellations must be made 24+ hours in advance.</p>
-          <p className="sm:hidden">• You will receive a confirmation email once completed.</p>
+          {bookingData.depositAmount ? (
+            <>
+              <p>• This deposit secures your appointment time and is non-refundable within 48 hours.</p>
+              <p className="hidden sm:block">• Cancellations must be made at least 48 hours in advance for a full deposit refund.</p>
+              <p className="hidden sm:block">• The remaining service amount will be paid directly to the service provider.</p>
+              <p className="hidden sm:block">• You will receive a confirmation email once payment is completed.</p>
+            </>
+          ) : ""}
+          <p>• The platform fee helps maintain and improve our booking system. This fee is 5% of the service amount (minimum AED 3, maximum AED 5)</p>
+          <p className="sm:block">• Cancellations must be made 48+ hours in advance.</p>
+          <p className="sm:block">• You will receive a confirmation email once completed.</p>
         </div>
       </div>
     </div>

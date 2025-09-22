@@ -204,10 +204,10 @@ export default function DetailsPage() {
           <div className="hidden sm:block space-y-2">
             <p><strong>Date:</strong> {bookingData.appointmentDate && formatDate(bookingData.appointmentDate)}</p>
             <p><strong>Time:</strong> {bookingData.appointmentTime}</p>
-            <p><strong>Price:</strong> AED {bookingData.totalAmount}</p>
+            <p><strong>Price:</strong> AED {bookingData.serviceAmount}</p>
           </div>
           <div className="sm:hidden">
-            <p><strong>Price:</strong> AED {bookingData.totalAmount}</p>
+            <p><strong>Price:</strong> AED {bookingData.serviceAmount}</p>
           </div>
         </div>
       </div>
@@ -367,7 +367,7 @@ export default function DetailsPage() {
                 <span className="text-xs sm:text-sm text-gray-700">Send appointment reminders via email</span>
               </label>
               
-              <label className="flex items-center">
+              {/* <label className="flex items-center">
                 <input
                   type="checkbox"
                   name="smsNotifications"
@@ -376,7 +376,7 @@ export default function DetailsPage() {
                   className="mr-2 sm:mr-3 h-3 w-3 sm:h-4 sm:w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <span className="text-xs sm:text-sm text-gray-700">Send appointment reminders via SMS</span>
-              </label>
+              </label> */}
             </div>
           </div>
 
@@ -384,8 +384,8 @@ export default function DetailsPage() {
           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
             <h4 className="font-medium mb-2 text-gray-900 text-sm sm:text-base">Cancellation Policy</h4>
             <p className="text-xs sm:text-sm text-gray-600">
-              <span className="sm:hidden">Appointments can be cancelled or rescheduled up to 24 hours in advance. Cancellations made less than 24 hours before may be subject to a cancellation fee.</span>
-              <span className="hidden sm:inline">Appointments can be cancelled or rescheduled up to 24 hours in advance. Cancellations made less than 24 hours before the appointment time may be subject to a cancellation fee.</span>
+              <span className="sm:hidden">Appointments can be cancelled or rescheduled up to 48 hours in advance. Cancellations made less than 48 hours before may be subject to a cancellation fee.</span>
+              <span className="hidden sm:inline">Appointments can be cancelled or rescheduled up to 48 hours in advance. Cancellations made less than 48 hours before the appointment time may be subject to a cancellation fee.</span>
             </p>
           </div>
         </form>

@@ -9,9 +9,7 @@ export interface BookingData {
   serviceName?: string
   serviceCategory?: string
   duration?: number
-  totalAmount?: number
   serviceAmount?: number
-  depositAmount?: number
   serviceLocation?: 'home' | 'in-store'
   
   // Date & Time Selection
@@ -83,10 +81,8 @@ export function useBookingStorage() {
     serviceName: string
     serviceCategory: string
     duration: number
-    totalAmount: number
-    depositAmount: number
     serviceAmount: number
-    serviceLocation: 'home' | 'instore'
+    serviceLocation: 'home' | 'in-store'
   }) => {
     updateBookingData(service)
   }
@@ -127,7 +123,7 @@ export function useBookingStorage() {
 
   // Validation helpers
   const isServiceSelected = () => {
-    return !!(bookingData.serviceId && bookingData.totalAmount && bookingData.serviceLocation)
+    return !!(bookingData.serviceId && bookingData.serviceAmount && bookingData.serviceLocation)
   }
 
   const isAppointmentSelected = () => {

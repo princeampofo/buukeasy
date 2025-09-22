@@ -111,7 +111,6 @@ async function sendBookingConfirmationEmail(bookingId: string) {
         businessName: booking.entrepreneur.businessName,
         appointmentDate: booking.appointmentDate,
         appointmentTime: booking.appointmentTime,
-        totalAmount: booking.payment?.totalAmount || 0,
         depositPaid: booking.payment?.depositAmount || 0,
         remainingAmount: (booking.payment?.serviceAmount || 0) - (booking.payment?.depositAmount || 0),
         serviceLocation: booking.serviceLocation,
@@ -153,7 +152,6 @@ async function sendBookingNotificationToEntrepreneur(bookingId: string) {
         serviceName: booking.service.name,
         appointmentDate: booking.appointmentDate,
         appointmentTime: booking.appointmentTime,
-        totalAmount: booking.payment?.totalAmount || 0,
         depositPaid: booking.payment?.depositAmount || 0,
         remainingAmount: (booking.payment?.serviceAmount || 0) - (booking.payment?.depositAmount || 0),
         serviceLocation: booking.serviceLocation,
@@ -271,20 +269,17 @@ async function handlePaymentCompleted(booking: any, data: ZiinaWebhookPayload['d
     const result = await prisma.$transaction(async (tx) => {
       
       // Calculate amounts (amount is in fils, convert to AED)
-      const depositAmount = data.amount / 100
+      const depositAmount = 0
       const tipAmount = paymentDetails.tip_amount ? paymentDetails.tip_amount / 100 : 0
       const processingFee = paymentDetails.fee_amount ? paymentDetails.fee_amount / 100 : 0
 
       const service = booking.service
-      const totalAmount = booking.serviceLocation === 'home' ? 
-        service.homeServicePrice + service.homeServiceDeposit : 
-        service.inStoreServicePrice + service.inStoreServiceDeposit
       const serviceAmount = booking.serviceLocation === 'home' ? 
         service.homeServicePrice : service.inStoreServicePrice
 
       const platformFeeRate = 0.05 // 5% platform fee on deposits
-      const platformFee = depositAmount * platformFeeRate
-      const netAmount = depositAmount - platformFee - processingFee
+      const platformFee = data.amount / 100 // Convert fils to AED
+      const netAmount = serviceAmount - depositAmount
       
       // Update or create payment record
       const payment = await tx.payment.upsert({
@@ -292,7 +287,7 @@ async function handlePaymentCompleted(booking: any, data: ZiinaWebhookPayload['d
         create: {
           bookingId: booking.id,
           entrepreneurId: booking.entrepreneurId,
-          totalAmount: totalAmount,
+          totalAmount: 0,
           depositAmount: depositAmount,
           serviceAmount: serviceAmount,
           tipAmount: tipAmount,

@@ -94,16 +94,13 @@ export default function ServiceSelectionPage() {
     const service = businessData?.services.find(s => s.id === serviceId)
     if (service) {
       const location = service.availableLocations.length > 0 ? service.availableLocations[0] : 'in-store'
-      const price = location === 'home' ? service.homeServicePrice + service.homeServiceDeposit : service.price + service.inStoreServiceDeposit
 
       setService({
         serviceId: service.id,
         serviceName: service.name,
         serviceCategory: service.category,
         duration: service.duration,
-        totalAmount: price,
         serviceAmount: location === 'home' ? service.homeServicePrice : service.price,
-        depositAmount: location === 'home' ? service.homeServiceDeposit : service.inStoreServiceDeposit,
         serviceLocation: location
       })
     }
@@ -112,16 +109,13 @@ export default function ServiceSelectionPage() {
   const handleLocationToggle = (serviceId: string, newLocation: 'in-store' | 'home') => {
     const service = businessData?.services.find(s => s.id === serviceId)
     if (service) {
-      const price = newLocation === 'home' ? service.homeServicePrice + service.homeServiceDeposit : service.price + service.inStoreServiceDeposit
 
       setService({
         serviceId: service.id,
         serviceName: service.name,
         serviceCategory: service.category,
         duration: service.duration,
-        totalAmount: price,
         serviceAmount: newLocation === 'home' ? service.homeServicePrice : service.price,
-        depositAmount: newLocation === 'home' ? service.homeServiceDeposit : service.inStoreServiceDeposit,
         serviceLocation: newLocation
       })
     }
@@ -287,8 +281,8 @@ export default function ServiceSelectionPage() {
                       <div className="text-right ml-3">
                         <div className="text-lg sm:text-xl font-bold text-gray-900">
                           AED {selectedService === service.id 
-                            ? (selectedServiceLocation === 'home' ? service.homeServicePrice + service.homeServiceDeposit : service.price + service.inStoreServiceDeposit).toFixed(2)
-                            : (service.price + service.inStoreServiceDeposit).toFixed(2)
+                            ? (selectedServiceLocation === 'home' ? service.homeServicePrice : service.price).toFixed(2)
+                            : (service.price).toFixed(2)
                           }
                         </div>
                       </div>

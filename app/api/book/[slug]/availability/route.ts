@@ -81,12 +81,12 @@ async function generateAvailableTimeSlots(
 
   // Determine buffer time based on service location
   const bufferTime = serviceLocation === 'home' 
-    ? (service.homeServiceBufferTime || 15)
-    : (service.inStoreServiceBufferTime || 15)
+    ? (service.homeServiceBufferTime || 0)
+    : (service.inStoreServiceBufferTime || 0)
 
   const minAdvanceHours = service.minAdvanceHours || 48
   const maxAdvanceDays = service.maxAdvanceDays || 90
-  
+  console.log(`Service actual buffer time: ${service.homeServiceBufferTime} (home), ${service.inStoreServiceBufferTime} (in-store)`)
   console.log(`Service duration: ${service.duration} minutes`)
   console.log(`Buffer time (${serviceLocation}): ${bufferTime} minutes`)
   console.log(`Min advance hours: ${minAdvanceHours}`)
@@ -175,8 +175,8 @@ async function generateAvailableTimeSlots(
 
         // Determine existing booking's buffer time
         const existingBookingBufferTime = booking.serviceLocation === 'home'
-          ? (booking.service.homeServiceBufferTime || 15)
-          : (booking.service.inStoreServiceBufferTime || 15)
+          ? (booking.service.homeServiceBufferTime || 0)
+          : (booking.service.inStoreServiceBufferTime || 0)
 
         const existingEnd = existingDateTime.plus({ minutes: booking.duration + existingBookingBufferTime })
 

@@ -233,7 +233,7 @@ export default function AvailabilityPage() {
               {bookingData.duration}min
             </div>
             <div className="font-semibold">
-              AED {bookingData.totalAmount?.toFixed(2)}
+              AED {bookingData.serviceAmount?.toFixed(2)}
             </div>
             <div className="capitalize hidden sm:block">
               {bookingData.serviceLocation === 'home' ? 'Home Service' : 'In-Store'}
@@ -399,7 +399,7 @@ export default function AvailabilityPage() {
             </div>
             <div className="space-y-1 lg:space-y-2 hidden sm:block">
               <p><span className="font-medium">Duration:</span> {bookingData.duration} minutes</p>
-              <p><span className="font-medium">Price:</span> AED {bookingData.totalAmount?.toFixed(2)}</p>
+              <p><span className="font-medium">Price:</span> AED {bookingData.serviceAmount?.toFixed(2)}</p>
               <p><span className="font-medium">Location:</span> {bookingData.serviceLocation === 'home' ? 'Home Service' : 'In-Store'}</p>
             </div>
           </div>

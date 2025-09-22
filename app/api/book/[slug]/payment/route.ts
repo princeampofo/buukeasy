@@ -24,9 +24,8 @@ const paymentRequestSchema = z.object({
     
   appointmentTime: z.string()
     .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Valid 24-hour time format required (HH:MM)'),
-    
-  totalAmount: z.number().positive('Total amount must be positive'),
-  depositAmount: z.number().positive('Deposit amount must be positive'),
+  depositAmount: z.number().min(0, 'Deposit amount must be non-negative').optional().default(0),
+  platformFee: z.number().min(0, 'Platform fee cannot be negative'),
   serviceAmount: z.number().positive('Service amount must be positive'),
   serviceLocation: z.enum(['home', 'in-store'], { 
     required_error: 'Service location is required' 
@@ -301,6 +300,7 @@ export async function POST(request: NextRequest) {
           field: err.path.join('.'),
           message: err.message
         }))
+        console.log('Validation errors:', fieldErrors)
         return createErrorResponse(
           'Please check your booking information and try again.',
           { fieldErrors },
@@ -364,7 +364,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate deposit amount
-    if (validatedData.depositAmount > validatedData.totalAmount) {
+    if (validatedData.depositAmount > validatedData.serviceAmount) {
       return createErrorResponse(
         'The deposit amount cannot exceed the total service amount.',
         null,
@@ -441,7 +441,7 @@ export async function POST(request: NextRequest) {
     const msg = `Please complete your payment within 15 minutes`
 
     const ziinaPaymentData: ZiinaPaymentIntentRequest = {
-      amount: validatedData.depositAmount * 100, // Convert to fils
+      amount: validatedData.platformFee * 100, // Convert to fils
       currency_code: 'AED',
       message: msg,
       // Redirect to confirmation page with booking slug for immediate lookup
@@ -592,9 +592,10 @@ export async function GET(
           method: booking.payment.paymentMethod,
           type: booking.payment.paymentType,
           transactionId: booking.payment.transactionId,
-          totalAmount: booking.payment.totalAmount,
+          serviceAmount: booking.payment.serviceAmount,
           depositAmount: booking.payment.depositAmount,
-          remainingAmount: booking.payment.serviceAmount
+          platformFee: booking.payment.platformFee,
+          remainingAmount: booking.payment.serviceAmount - booking.payment.depositAmount,
         } : null
       }
     })

@@ -529,17 +529,17 @@ export default function StatusPage() {
               </div>
 
               <div className="space-y-1 sm:space-y-2">
-                <div className="flex justify-between">
+                {booking.payment.depositAmount? <div className="flex justify-between">
                   <span className="text-gray-600 text-sm sm:text-base">Deposit Paid:</span>
                   <span className="font-medium text-sm sm:text-base">AED {booking.payment.depositAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
+                </div> : null}
+                {booking.payment.depositAmount ? <div className="flex justify-between">
                   <span className="text-gray-600 text-sm sm:text-base">Remaining Amount:</span>
                   <span className="font-medium text-sm sm:text-base">AED {booking.payment.remainingAmount.toFixed(2)}</span>
-                </div>
+                </div> : null}
                 <div className="flex justify-between text-base sm:text-lg font-semibold pt-2 border-t">
                   <span>Total Amount:</span>
-                  <span>AED {booking.payment.totalAmount.toFixed(2)}</span>
+                  <span>AED {booking.payment.serviceAmount.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -579,10 +579,10 @@ export default function StatusPage() {
           <p>• You will receive a confirmation email shortly.</p>
           <p className="sm:hidden">• Arrive 5-10 minutes early.</p>
           <p className="hidden sm:block">• Please arrive 5-10 minutes before your appointment time.</p>
-          {booking.payment && (
+          {booking.payment?.depositAmount ? (
             <p className="hidden sm:block">• The remaining amount of AED {booking.payment.remainingAmount.toFixed(2)} will be paid directly to the service provider.</p>
-          )}
-          <p className="sm:hidden">• For changes, contact us 24+ hours in advance.</p>
+          ) : null}
+          <p className="sm:hidden">• For changes, contact us 48+ hours in advance.</p>
           <p className="hidden sm:block">• For changes or cancellations, contact us at least 24 hours in advance.</p>
         </div>
       </div>
