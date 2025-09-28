@@ -29,13 +29,11 @@ export const useAuth = (): UseAuthReturn => {
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
       })
-      console.log('Checking auth status...')
       if (response.ok) {
         const data = await response.json()
         setUser(data.user)
         setIsAuthenticated(true)
       } else {
-        console.log('User not authenticated')
         setUser(null)
         setIsAuthenticated(false)
       }

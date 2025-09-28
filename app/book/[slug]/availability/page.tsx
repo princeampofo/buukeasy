@@ -81,7 +81,7 @@ export default function AvailabilityPage() {
           }
         } else {
           const errorData = await response.text()
-          console.error('Booking Window API Error Response:', errorData)
+          console.error('Booking Window API Error:', errorData)
         }
       } catch (error) {
         console.error('Failed to fetch booking window:', error)

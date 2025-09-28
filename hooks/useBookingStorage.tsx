@@ -103,7 +103,6 @@ export function useBookingStorage() {
     addressNotes?: string
     specialRequests?: string
   }) => {
-    console.log('Setting customer details:', customer)
     updateBookingData(customer)
   }
 

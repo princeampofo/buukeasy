@@ -21,7 +21,6 @@ function createErrorResponse(message: string, details?: any, status: number = 40
 async function initiateRefund(payment: any, booking: any): Promise<void> {
   // TODO: Implement actual refund logic with Ziina API
   // For now, we'll just log the refund request
-  console.log('Refund initiated for booking:', booking.bookingSlug, 'Amount:', payment.depositAmount)
   
   // In a real implementation, you would:
   // 1. Call Ziina's refund API
@@ -86,8 +85,6 @@ async function sendCancellationEmails(booking: any): Promise<void> {
         refundAmount: booking.payment?.depositAmount || 0
       }
     }
-
-    console.log('Cancellation emails prepared for:', booking.bookingSlug)
     // TODO: Implement actual email sending service
     
   } catch (error) {
@@ -256,7 +253,7 @@ export async function POST(request: NextRequest) {
         // sendCancellationEmails(booking)
       ])
     } catch (refundError) {
-      console.error('Failed to initiate refund or send emails for booking:', booking.bookingSlug, refundError)
+      console.error('Failed to initiate refund or send emails for booking:', refundError)
       // Don't fail the cancellation if refund initiation fails
       // The refund can be processed manually if needed
     }

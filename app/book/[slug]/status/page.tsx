@@ -538,7 +538,11 @@ export default function StatusPage() {
                   <span className="font-medium text-sm sm:text-base">AED {booking.payment.remainingAmount.toFixed(2)}</span>
                 </div> : null}
                 <div className="flex justify-between text-base sm:text-lg font-semibold pt-2 border-t">
-                  <span>Total Amount:</span>
+                  <span className="text-gray-600 text-sm sm:text-base">Paid:</span>
+                  <span className="font-medium text-sm sm:text-base">AED {booking.payment.platformFee.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-base sm:text-lg font-semibold pt-2 border-t">
+                  <span>Remaining Amount:</span>
                   <span>AED {booking.payment.serviceAmount.toFixed(2)}</span>
                 </div>
               </div>

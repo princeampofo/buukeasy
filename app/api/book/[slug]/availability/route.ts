@@ -33,12 +33,6 @@ async function generateAvailableTimeSlots(
   }
   
   const dayOfWeek = targetDate.weekday % 7 // Luxon uses 1-7 (Mon-Sun), convert to 0-6 (Sun-Sat)
-  
-  console.log(`=== GENERATING SLOTS (${timezone}) ===`)
-  console.log(`Date string: ${date}`)
-  console.log(`Target date: ${targetDate.toISO()}`)
-  console.log(`Day of Week: ${dayOfWeek} (0=Sunday, 1=Monday, etc.)`)
-  console.log(`Service Location: ${serviceLocation}`)
 
   // Get ALL working hours for this day
   const workingHours = await prisma.timeSlot.findMany({
@@ -57,10 +51,6 @@ async function generateAvailableTimeSlots(
     return []
   }
 
-  console.log(`Found ${workingHours.length} working hour blocks:`)
-  workingHours.forEach((wh, index) => {
-    console.log(`  Block ${index + 1}: ${wh.startTime} - ${wh.endTime}`)
-  })
 
   // Get service details with location-specific buffer time
   const service = await prisma.service.findUnique({
@@ -75,7 +65,7 @@ async function generateAvailableTimeSlots(
   })
 
   if (!service) {
-    console.log(`Service not found: ${serviceId}`)
+    console.log('Service not found')
     return []
   }
 
@@ -86,20 +76,11 @@ async function generateAvailableTimeSlots(
 
   const minAdvanceHours = service.minAdvanceHours || 48
   const maxAdvanceDays = service.maxAdvanceDays || 90
-  console.log(`Service actual buffer time: ${service.homeServiceBufferTime} (home), ${service.inStoreServiceBufferTime} (in-store)`)
-  console.log(`Service duration: ${service.duration} minutes`)
-  console.log(`Buffer time (${serviceLocation}): ${bufferTime} minutes`)
-  console.log(`Min advance hours: ${minAdvanceHours}`)
-  console.log(`Max advance days: ${maxAdvanceDays}`)
 
   // Calculate booking window in entrepreneur's timezone
   const now = DateTime.now().setZone(timezone)
   const minBookingTime = now.plus({ hours: minAdvanceHours })
   const maxBookingTime = now.plus({ days: maxAdvanceDays })
-
-  console.log(`Current time (${timezone}): ${now.toISO()}`)
-  console.log(`Min booking time: ${minBookingTime.toISO()}`)
-  console.log(`Max booking time: ${maxBookingTime.toISO()}`)
 
   // Get existing bookings for this date
   const startOfDay = targetDate.startOf('day')
@@ -127,18 +108,14 @@ async function generateAvailableTimeSlots(
     }
   })
 
-  console.log(`Found ${existingBookings.length} existing bookings`)
-
   const allSlots: TimeSlot[] = []
   
   // Determine optimal interval based on service duration
   const interval = 15
-  console.log(`Using ${interval}-minute intervals for slot generation`)
 
   // Generate slots for each working hours block
   workingHours.forEach((workingBlock, blockIndex) => {
-    console.log(`\n=== Processing Block ${blockIndex + 1}: ${workingBlock.startTime} - ${workingBlock.endTime} ===`)
-    
+
     // Parse working hours (HH:mm format)
     const [startHour, startMinute] = workingBlock.startTime.split(':').map(Number)
     const [endHour, endMinute] = workingBlock.endTime.split(':').map(Number)
