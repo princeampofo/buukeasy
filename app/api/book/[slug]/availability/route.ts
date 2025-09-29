@@ -211,8 +211,8 @@ async function getBookingWindow(serviceId: string, timezone: string): Promise<Bo
   return {
     minAdvanceHours,
     maxAdvanceDays,
-    minBookingDate: minBookingDate.toISO(),
-    maxBookingDate: maxBookingDate.toISO()
+    minBookingDate: minBookingDate.toISO() || '',
+    maxBookingDate: maxBookingDate.toISO() || ''
   }
 }
 

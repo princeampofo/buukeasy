@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Mail, Lock, User, Building, AlertCircle, CheckCircle, Rocket, Sparkles, Star, Crown, Phone, MapPin, Map, ArrowRight, ArrowLeft, ChevronRight } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Building, AlertCircle, CheckCircle, Rocket, Phone, MapPin, Map, ArrowRight, ArrowLeft } from 'lucide-react'
 import { useAuthContext } from '@/contexts/AuthContext'
 
 export default function SignupPage() {
