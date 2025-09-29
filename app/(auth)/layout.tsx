@@ -22,7 +22,7 @@ export default function AuthLayout({
           <div className="bg-gradient-to-r from-white to-blue-400 p-2 rounded-lg">
             <Zap className="h-5 w-5 text-white" />
           </div>
-          <span className="ml-3 text-xl font-bold text-white">BuukMe</span>
+          <span className="ml-3 text-xl font-bold text-white">BuukEasy</span>
         </Link>
       </header>
 

@@ -190,7 +190,7 @@ export default function LoginPage() {
 
           <div className="mt-8 text-center">
             <p className="text-white/70">
-              New to BuukMe?{' '}
+              New to BuukEasy?{' '}
               <Link 
                 href="/signup" 
                 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-400 hover:from-blue-100 hover:to-blue-500 transition-all duration-300"
@@ -198,18 +198,6 @@ export default function LoginPage() {
                 Create your free account
               </Link>
             </p>
-          </div>
-
-          {/* Demo credentials with glassmorphism */}
-          <div className="mt-8 p-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl">
-            <div className="flex items-center mb-3">
-              <Sparkles className="h-4 w-4 text-blue-400 mr-2" />
-              <p className="text-xs text-white/80 font-semibold">Demo Access</p>
-            </div>
-            <div className="text-xs text-white/70 space-y-1">
-              <p><span className="text-white/90 font-medium">Email:</span> demo@BuukMe.app</p>
-              <p><span className="text-white/90 font-medium">Password:</span> demo123</p>
-            </div>
           </div>
         </div>
       </div>
