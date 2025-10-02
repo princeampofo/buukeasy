@@ -1,7 +1,157 @@
+'use client'
+
 import Link from 'next/link'
 import { Zap, Timer, Palette, Gem, Rocket, Shield, Wand2, Target, CheckCircle, Play, ArrowUpRight } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 export default function LandingPage() {
+  const featuresRef = useRef<HTMLDivElement>(null)
+  const testimonialsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const featuresScroll = featuresRef.current
+    let featuresInterval: NodeJS.Timeout | null = null
+    let isPaused = false
+    
+    if (featuresScroll) {
+      const scrollWidth = featuresScroll.scrollWidth
+      const clientWidth = featuresScroll.clientWidth
+      let scrollPos = 0
+      
+      const startScrolling = () => {
+        featuresInterval = setInterval(() => {
+          if (!isPaused) {
+            scrollPos += 1
+            if (scrollPos >= scrollWidth - clientWidth) {
+              scrollPos = 0
+            }
+            featuresScroll!.scrollLeft = scrollPos
+          }
+        }, 30)
+      }
+      
+      const handleMouseEnter = () => {
+        isPaused = true
+      }
+      
+      const handleMouseLeave = () => {
+        isPaused = false
+      }
+      
+      featuresScroll.addEventListener('mouseenter', handleMouseEnter)
+      featuresScroll.addEventListener('mouseleave', handleMouseLeave)
+      
+      startScrolling()
+      
+      return () => {
+        if (featuresInterval) clearInterval(featuresInterval)
+        featuresScroll?.removeEventListener('mouseenter', handleMouseEnter)
+        featuresScroll?.removeEventListener('mouseleave', handleMouseLeave)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const testimonialsScroll = testimonialsRef.current
+    let isPausedTestimonials = false
+    
+    if (testimonialsScroll) {
+      const scrollWidth = testimonialsScroll.scrollWidth
+      const clientWidth = testimonialsScroll.clientWidth
+      let scrollPos = 0
+      
+      const testimonialsInterval = setInterval(() => {
+        if (!isPausedTestimonials) {
+          scrollPos += 1
+          if (scrollPos >= scrollWidth - clientWidth) {
+            scrollPos = 0
+          }
+          testimonialsScroll!.scrollLeft = scrollPos
+        }
+      }, 30)
+      
+      const handleMouseEnter = () => {
+        isPausedTestimonials = true
+      }
+      
+      const handleMouseLeave = () => {
+        isPausedTestimonials = false
+      }
+      
+      testimonialsScroll.addEventListener('mouseenter', handleMouseEnter)
+      testimonialsScroll.addEventListener('mouseleave', handleMouseLeave)
+      
+      return () => {
+        clearInterval(testimonialsInterval)
+        testimonialsScroll?.removeEventListener('mouseenter', handleMouseEnter)
+        testimonialsScroll?.removeEventListener('mouseleave', handleMouseLeave)
+      }
+    }
+  }, [])
+
+  const features = [
+    {
+      icon: Palette,
+      title: "All Beauty Services",
+      description: "Hair, nails, massage, skincare, lashes - we've got every beauty professional covered",
+      gradient: "from-white to-blue-300"
+    },
+    {
+      icon: Timer,
+      title: "Lightning Setup",
+      description: "Get your booking page live in under 5 minutes. No technical skills needed",
+      gradient: "from-blue-100 to-blue-400"
+    },
+    {
+      icon: Target,
+      title: "Smart Scheduling",
+      description: "Intelligent calendar system that prevents double bookings and keeps you organized",
+      gradient: "from-white to-sky-400"
+    },
+    {
+      icon: Wand2,
+      title: "Magic Reminders",
+      description: "Automated SMS and email reminders that reduce no-shows",
+      gradient: "from-sky-100 to-blue-500"
+    },
+    {
+      icon: Shield,
+      title: "Client Management",
+      description: "Keep detailed notes, track appointment history, and remember client preferences",
+      gradient: "from-white to-cyan-400"
+    },
+    {
+      icon: Rocket,
+      title: "Mobile Responsive",
+      description: "Fully responsive website that works perfectly on any device - desktop, tablet, or phone",
+      gradient: "from-blue-200 to-blue-500"
+    }
+  ]
+
+  const testimonials = [
+    {
+      text: "Game changer! My clients love the sleek booking experience and I save 3 hours a week on scheduling.",
+      name: "Wisdom Esil",
+      role: "Hair Stylist",
+      avatar: "WE",
+      color: "from-white to-blue-300"
+    },
+    {
+      text: "The mobile-responsive design is perfect! I can manage bookings from my laptop or my phone making life so much easier.",
+      name: "Scott Effectz",
+      role: "Barber",
+      avatar: "SE",
+      color: "from-blue-100 to-blue-400"
+    },
+    {
+      text: "My no-show rate dropped significantly with the smart reminders. Plus it's completely free - amazing value!",
+      name: "Juliet Kalu",
+      role: "Nail Tech",
+      avatar: "JK",
+      color: "from-sky-200 to-blue-500"
+    }
+  ]
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Floating Header */}
@@ -51,11 +201,6 @@ export default function LandingPage() {
                   Launch Your Booking Page
                   <Rocket className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
-                {/* <button className="group bg-white/10 backdrop-blur-sm border border-white/20 text-white px-8 py-4 rounded-2xl font-semibold hover:bg-white/20 transition-all duration-300 flex items-center justify-center">
-                  <Play className="mr-2 h-5 w-5" />
-                  Watch Demo
-                  <ArrowUpRight className="ml-2 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                </button> */}
               </div>
               
               <div className="flex items-center space-x-6 text-white/60">
@@ -105,8 +250,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Grid with Cards */}
-      <section className="py-20 relative">
+      {/* Features Carousel */}
+      <section className="py-20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-black text-white mb-6">
@@ -119,48 +264,15 @@ export default function LandingPage() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Palette,
-                title: "All Beauty Services",
-                description: "Hair, nails, massage, skincare, lashes - we've got every beauty professional covered",
-                gradient: "from-white to-blue-300"
-              },
-              {
-                icon: Timer,
-                title: "Lightning Setup",
-                description: "Get your booking page live in under 5 minutes. No technical skills needed",
-                gradient: "from-blue-100 to-blue-400"
-              },
-              {
-                icon: Target,
-                title: "Smart Scheduling",
-                description: "Intelligent calendar system that prevents double bookings and keeps you organized",
-                gradient: "from-white to-sky-400"
-              },
-              {
-                icon: Wand2,
-                title: "Magic Reminders",
-                description: "Automated SMS and email reminders that reduce no-shows",
-                gradient: "from-sky-100 to-blue-500"
-              },
-              {
-                icon: Shield,
-                title: "Client Management",
-                description: "Keep detailed notes, track appointment history, and remember client preferences",
-                gradient: "from-white to-cyan-400"
-              },
-              {
-                icon: Rocket,
-                title: "Mobile Responsive",
-                description: "Fully responsive website that works perfectly on any device - desktop, tablet, or phone",
-                gradient: "from-blue-200 to-blue-500"
-              }
-            ].map((feature, index) => (
-              <div key={index} className="group relative">
-                <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-8 hover:bg-white/10 transition-all duration-300 hover:scale-105">
-                  <div className={`bg-gradient-to-r ${feature.gradient} p-3 rounded-2xl w-fit mb-6 group-hover:scale-110 transition-transform duration-300`}>
+          <div 
+            ref={featuresRef}
+            className="flex gap-8 overflow-x-hidden"
+            style={{ scrollBehavior: 'auto' }}
+          >
+            {[...features, ...features].map((feature, index) => (
+              <div key={index} className="min-w-[350px] group relative">
+                <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-8 hover:bg-white/10 transition-all duration-300 h-full">
+                  <div className={`bg-gradient-to-r ${feature.gradient} p-3 rounded-2xl w-fit mb-6 group-hover:scale-100 transition-transform duration-300`}>
                     <feature.icon className="h-6 w-6 text-blue-800" />
                   </div>
                   <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
@@ -185,31 +297,13 @@ export default function LandingPage() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                text: "Game changer! My clients love the sleek booking experience and I save 3 hours a week on scheduling.",
-                name: "Wisdom Esil",
-                role: "Hair Stylist",
-                avatar: "WE",
-                color: "from-white to-blue-300"
-              },
-              {
-                text: "The mobile-responsive design is perfect! I can manage bookings from my laptop or my phone.",
-                name: "Scott Effectz",
-                role: "Barber",
-                avatar: "SE",
-                color: "from-blue-100 to-blue-400"
-              },
-              {
-                text: "My no-show rate dropped significantly with the smart reminders. Plus it's completely free - amazing value!",
-                name: "Juliet Kalu",
-                role: "Nail Tech",
-                avatar: "JK",
-                color: "from-sky-200 to-blue-500"
-              }
-            ].map((testimonial, index) => (
-              <div key={index} className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-8 hover:bg-white/15 transition-all duration-300">
+          <div 
+            ref={testimonialsRef}
+            className="flex gap-8 overflow-x-hidden"
+            style={{ scrollBehavior: 'auto' }}
+          >
+            {[...testimonials, ...testimonials, ...testimonials].map((testimonial, index) => (
+              <div key={index} className="min-w-[350px] bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-8 hover:bg-white/15 transition-all duration-300">
                 <p className="text-white/90 text-lg leading-relaxed mb-6">"{testimonial.text}"</p>
                 <div className="flex items-center">
                   <div className={`w-12 h-12 bg-gradient-to-r ${testimonial.color} rounded-full flex items-center justify-center`}>
@@ -261,7 +355,6 @@ export default function LandingPage() {
               <p className="text-white/70 max-w-md mb-6">
                 The future of appointment booking for beauty and wellness professionals. Simple, powerful, and always free.
               </p>
-
             </div>
             
             <div className="flex space-x-8">
