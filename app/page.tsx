@@ -1,8 +1,8 @@
 'use client'
 
+import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Zap, Timer, Palette, Gem, Rocket, Shield, Wand2, Target, CheckCircle, Play, ArrowUpRight } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { Zap, Timer, Palette, Gem, Rocket, Shield, Wand2, Target, CheckCircle } from 'lucide-react'
 
 export default function LandingPage() {
   const featuresRef = useRef<HTMLDivElement>(null)
@@ -10,81 +10,84 @@ export default function LandingPage() {
 
   useEffect(() => {
     const featuresScroll = featuresRef.current
-    let featuresInterval: NodeJS.Timeout | null = null
+    let animationId: number | null = null
     let isPaused = false
+    let scrollPos = 0
     
     if (featuresScroll) {
-      const scrollWidth = featuresScroll.scrollWidth
-      const clientWidth = featuresScroll.clientWidth
-      let scrollPos = 0
-      
-      const startScrolling = () => {
-        featuresInterval = setInterval(() => {
-          if (!isPaused) {
-            scrollPos += 1
-            if (scrollPos >= scrollWidth - clientWidth) {
-              scrollPos = 0
-            }
-            featuresScroll!.scrollLeft = scrollPos
+      const scroll = () => {
+        if (!isPaused && featuresScroll) {
+          scrollPos += 0.5
+          const maxScroll = featuresScroll.scrollWidth - featuresScroll.clientWidth
+          
+          if (scrollPos >= maxScroll) {
+            scrollPos = 0
           }
-        }, 30)
+          
+          featuresScroll.scrollLeft = scrollPos
+        }
+        animationId = requestAnimationFrame(scroll)
       }
       
-      const handleMouseEnter = () => {
+      const handlePause = () => {
         isPaused = true
       }
       
-      const handleMouseLeave = () => {
+      const handleResume = () => {
         isPaused = false
       }
       
-      featuresScroll.addEventListener('mouseenter', handleMouseEnter)
-      featuresScroll.addEventListener('mouseleave', handleMouseLeave)
+      featuresScroll.addEventListener('mouseenter', handlePause)
+      featuresScroll.addEventListener('mouseleave', handleResume)
       
-      startScrolling()
+      animationId = requestAnimationFrame(scroll)
       
       return () => {
-        if (featuresInterval) clearInterval(featuresInterval)
-        featuresScroll?.removeEventListener('mouseenter', handleMouseEnter)
-        featuresScroll?.removeEventListener('mouseleave', handleMouseLeave)
+        if (animationId) cancelAnimationFrame(animationId)
+        featuresScroll?.removeEventListener('mouseenter', handlePause)
+        featuresScroll?.removeEventListener('mouseleave', handleResume)
       }
     }
   }, [])
 
   useEffect(() => {
     const testimonialsScroll = testimonialsRef.current
-    let isPausedTestimonials = false
+    let animationId: number | null = null
+    let isPaused = false
+    let scrollPos = 0
     
     if (testimonialsScroll) {
-      const scrollWidth = testimonialsScroll.scrollWidth
-      const clientWidth = testimonialsScroll.clientWidth
-      let scrollPos = 0
-      
-      const testimonialsInterval = setInterval(() => {
-        if (!isPausedTestimonials) {
-          scrollPos += 1
-          if (scrollPos >= scrollWidth - clientWidth) {
+      const scroll = () => {
+        if (!isPaused && testimonialsScroll) {
+          scrollPos += 0.5
+          const maxScroll = testimonialsScroll.scrollWidth - testimonialsScroll.clientWidth
+          
+          if (scrollPos >= maxScroll) {
             scrollPos = 0
           }
-          testimonialsScroll!.scrollLeft = scrollPos
+          
+          testimonialsScroll.scrollLeft = scrollPos
         }
-      }, 30)
-      
-      const handleMouseEnter = () => {
-        isPausedTestimonials = true
+        animationId = requestAnimationFrame(scroll)
       }
       
-      const handleMouseLeave = () => {
-        isPausedTestimonials = false
+      const handlePause = () => {
+        isPaused = true
       }
       
-      testimonialsScroll.addEventListener('mouseenter', handleMouseEnter)
-      testimonialsScroll.addEventListener('mouseleave', handleMouseLeave)
+      const handleResume = () => {
+        isPaused = false
+      }
+      
+      testimonialsScroll.addEventListener('mouseenter', handlePause)
+      testimonialsScroll.addEventListener('mouseleave', handleResume)
+      
+      animationId = requestAnimationFrame(scroll)
       
       return () => {
-        clearInterval(testimonialsInterval)
-        testimonialsScroll?.removeEventListener('mouseenter', handleMouseEnter)
-        testimonialsScroll?.removeEventListener('mouseleave', handleMouseLeave)
+        if (animationId) cancelAnimationFrame(animationId)
+        testimonialsScroll?.removeEventListener('mouseenter', handlePause)
+        testimonialsScroll?.removeEventListener('mouseleave', handleResume)
       }
     }
   }, [])
@@ -272,7 +275,7 @@ export default function LandingPage() {
             {[...features, ...features].map((feature, index) => (
               <div key={index} className="min-w-[350px] group relative">
                 <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-8 hover:bg-white/10 transition-all duration-300 h-full">
-                  <div className={`bg-gradient-to-r ${feature.gradient} p-3 rounded-2xl w-fit mb-6 group-hover:scale-100 transition-transform duration-300`}>
+                  <div className={`bg-gradient-to-r ${feature.gradient} p-3 rounded-2xl w-fit mb-6 group-hover:scale-110 transition-transform duration-300`}>
                     <feature.icon className="h-6 w-6 text-blue-800" />
                   </div>
                   <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
