@@ -448,7 +448,7 @@ export async function POST(request: NextRequest) {
       success_url: `${baseUrl}/book/${slug}/status?booking=${bookingSlug}`,
       cancel_url: `${baseUrl}/book/${slug}/payment?booking=${bookingSlug}&status=cancelled`,
       failure_url: `${baseUrl}/book/${slug}/payment?booking=${bookingSlug}&status=failed`,
-      test: true,
+      test: false,
       expiry: expiryTimestamp.toString(), // 15 minutes from creation
       allow_tips: true,
     }
